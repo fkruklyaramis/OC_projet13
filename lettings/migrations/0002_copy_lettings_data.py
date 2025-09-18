@@ -4,8 +4,13 @@ def copy_lettings_data(apps, schema_editor):
     """
     Copie les données des anciens modèles Address et Letting vers les nouveaux modèles.
     """
-    OldAddress = apps.get_model('oc_lettings_site', 'Address')
-    OldLetting = apps.get_model('oc_lettings_site', 'Letting')
+    try:
+        OldAddress = apps.get_model('oc_lettings_site', 'Address')
+        OldLetting = apps.get_model('oc_lettings_site', 'Letting')
+    except LookupError:
+        # Les anciens modèles n'existent pas, on passe
+        return
+    
     NewAddress = apps.get_model('lettings', 'Address')
     NewLetting = apps.get_model('lettings', 'Letting')
 

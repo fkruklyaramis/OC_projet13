@@ -4,7 +4,12 @@ def copy_profiles_data(apps, schema_editor):
     """
     Copie les données du modèle Profile de l'ancienne application vers la nouvelle.
     """
-    OldProfile = apps.get_model('oc_lettings_site', 'Profile')
+    try:
+        OldProfile = apps.get_model('oc_lettings_site', 'Profile')
+    except LookupError:
+        # L'ancien modèle n'existe pas, on passe
+        return
+    
     NewProfile = apps.get_model('profiles', 'Profile')
     User = apps.get_model('auth', 'User')
 
