@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from .models import Letting
 
 
@@ -8,5 +8,16 @@ def index(request):
     """
     lettings_list = Letting.objects.all()
     context = {'lettings_list': lettings_list}
-    # Utilise le nouveau chemin du template
     return render(request, 'lettings/index.html', context)
+
+
+def letting(request, letting_id):
+    """
+    Affiche les détails d'une location spécifique.
+    """
+    letting = get_object_or_404(Letting, id=letting_id)
+    context = {
+        'title': letting.title,
+        'address': letting.address,
+    }
+    return render(request, 'lettings/letting.html', context)

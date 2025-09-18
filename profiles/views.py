@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from .models import Profile
 
 
@@ -8,5 +8,13 @@ def index(request):
     """
     profiles_list = Profile.objects.all()
     context = {'profiles_list': profiles_list}
-    # Utilise le nouveau chemin du template
     return render(request, 'profiles/index.html', context)
+
+
+def profile(request, username):
+    """
+    Affiche les détails d'un profil spécifique.
+    """
+    profile = get_object_or_404(Profile, user__username=username)
+    context = {'profile': profile}
+    return render(request, 'profiles/profile.html', context)

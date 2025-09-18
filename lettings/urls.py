@@ -5,5 +5,5 @@ app_name = 'lettings'
 
 urlpatterns = [
     path('', views.index, name='index'),
-    # Ajoute ici les autres vues de lettings si besoin
+    path('<int:letting_id>/', views.letting, name='letting'),
 ]
