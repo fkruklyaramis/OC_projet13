@@ -1,3 +1,9 @@
+"""
+Configuration principale des URLs du projet oc_lettings_site.
+
+Ce module définit les patterns d'URLs racines du projet
+et inclut les URLs des applications lettings et profiles.
+"""
 from django.contrib import admin
 from django.urls import path, include
 from . import views
