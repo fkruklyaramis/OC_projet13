@@ -17,7 +17,7 @@
                 <ul class="list-group list-group-flush list-group-careers">
                     {% for profile in profiles_list %}
                         <li class="list-group-item">
-                            {{ profile.user.username }}
+                            <a href="{% url 'profiles:profile' profile.user.username %}">{{ profile.user.username }}</a>
                         </li>
                     {% endfor %}
                 </ul>
