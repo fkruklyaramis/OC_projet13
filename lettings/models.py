@@ -4,7 +4,10 @@ Module contenant les modèles pour l'application lettings.
 Ce module définit les modèles Address et Letting utilisés
 pour gérer les adresses et les locations.
 """
+import logging
 from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 
 class Address(models.Model):
@@ -50,3 +53,45 @@ class Letting(models.Model):
         Retourne le titre de la location.
         """
         return self.title
+
+
+# Configuration des signaux pour le logging
+logger = logging.getLogger('lettings')
+
+
+@receiver(post_save, sender=Address)
+def address_saved(sender, instance, created, **kwargs):
+    """
+    Signal déclenché après la sauvegarde d'une adresse.
+    """
+    if created:
+        logger.info(f"Nouvelle adresse créée: {instance}")
+    else:
+        logger.info(f"Adresse mise à jour: {instance}")
+
+
+@receiver(post_delete, sender=Address)
+def address_deleted(sender, instance, **kwargs):
+    """
+    Signal déclenché après la suppression d'une adresse.
+    """
+    logger.warning(f"Adresse supprimée: {instance}")
+
+
+@receiver(post_save, sender=Letting)
+def letting_saved(sender, instance, created, **kwargs):
+    """
+    Signal déclenché après la sauvegarde d'un letting.
+    """
+    if created:
+        logger.info(f"Nouveau letting créé: {instance.title}")
+    else:
+        logger.info(f"Letting mis à jour: {instance.title}")
+
+
+@receiver(post_delete, sender=Letting)
+def letting_deleted(sender, instance, **kwargs):
+    """
+    Signal déclenché après la suppression d'un letting.
+    """
+    logger.warning(f"Letting supprimé: {instance.title}")

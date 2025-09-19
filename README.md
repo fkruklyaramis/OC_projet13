@@ -75,3 +75,130 @@ Utilisation de PowerShell, comme ci-dessus sauf :
 
 - Pour activer l'environnement virtuel, `.\venv\Scripts\Activate.ps1` 
 - Remplacer `which <my-command>` par `(Get-Command <my-command>).Path`
+
+
+## Surveillance et Logging avec Sentry
+
+### Configuration de Sentry
+
+L'application intègre **Sentry** pour la surveillance des erreurs et le logging avancé.
+
+#### 1. Prérequis Sentry
+
+1. **Créer un compte Sentry** : https://sentry.io/
+2. **Créer un nouveau projet Django** dans votre organisation
+3. **Récupérer la DSN** (Data Source Name) de votre projet
+
+#### 2. Configuration des variables d'environnement
+
+Copiez le fichier `.env.example` vers `.env` :
+
+```bash
+cp .env.example .env
+```
+
+Modifiez le fichier `.env` avec vos valeurs :
+
+```bash
+# Configuration Sentry
+SENTRY_DSN=https://your-actual-dsn@sentry.io/your-project-id
+SENTRY_LOG_LEVEL=INFO
+SENTRY_EVENT_LEVEL=ERROR
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_ENVIRONMENT=development
+SENTRY_RELEASE=1.0.0
+```
+
+#### 3. Variables d'environnement disponibles
+
+| Variable | Description | Valeurs possibles | Défaut |
+|----------|-------------|-------------------|--------|
+| `SENTRY_DSN` | URL de connexion Sentry | URL complète Sentry | - |
+| `SENTRY_LOG_LEVEL` | Niveau minimum de log | DEBUG, INFO, WARNING, ERROR, CRITICAL | INFO |
+| `SENTRY_EVENT_LEVEL` | Niveau pour créer des événements Sentry | WARNING, ERROR, CRITICAL | ERROR |
+| `SENTRY_TRACES_SAMPLE_RATE` | Taux d'échantillonnage des traces | 0.0 à 1.0 | 0.1 |
+| `SENTRY_ENVIRONMENT` | Environnement de déploiement | development, staging, production | development |
+| `SENTRY_RELEASE` | Version de l'application | Numéro de version | unknown |
+
+#### 4. Configuration des logs
+
+L'application utilise plusieurs loggers :
+- `oc_lettings_site` : Logs de l'application principale
+- `lettings` : Logs de l'application lettings
+- `profiles` : Logs de l'application profiles
+- `django` : Logs du framework Django
+
+Les logs sont envoyés vers :
+- **Console** : Tous les niveaux (DEBUG et plus)
+- **Fichier** : `logs/oc_lettings.log` (INFO et plus)
+- **Sentry** : Erreurs uniquement (ERROR et CRITICAL)
+
+#### 5. Test de la configuration Sentry
+
+Une fois l'application démarrée, vous pouvez tester Sentry :
+
+```bash
+# Test sans erreur
+curl "http://localhost:8000/sentry-debug/?type=test"
+
+# Test division par zéro
+curl "http://localhost:8000/sentry-debug/?type=division"
+
+# Test clé manquante
+curl "http://localhost:8000/sentry-debug/?type=key"
+
+# Test index hors limites
+curl "http://localhost:8000/sentry-debug/?type=index"
+
+# Test erreur personnalisée
+curl "http://localhost:8000/sentry-debug/?type=custom"
+```
+
+#### 6. Points de logging dans l'application
+
+**Vues** :
+- Logs d'accès avec adresses IP
+- Gestion des erreurs 404
+- Exceptions capturées
+
+**Modèles** :
+- Création/modification/suppression d'objets via signaux Django
+- Opérations critiques sur les données
+
+**Niveaux de log utilisés** :
+- `INFO` : Accès aux pages, opérations normales
+- `WARNING` : Erreurs 404, suppressions d'objets
+- `ERROR` : Erreurs d'application, exceptions
+
+#### 7. Déploiement en production
+
+Pour la production, modifiez les variables d'environnement :
+
+```bash
+SENTRY_ENVIRONMENT=production
+SENTRY_LOG_LEVEL=WARNING
+SENTRY_TRACES_SAMPLE_RATE=0.05
+```
+
+**Important** : Ne jamais committer le fichier `.env` contenant vos vraies clés Sentry !
+
+### Vérification des logs
+
+Les logs sont disponibles dans :
+- **Console** : Pendant le développement
+- **Fichier** : `logs/oc_lettings.log`
+- **Sentry Dashboard** : Pour les erreurs et événements
+
+### Dépannage
+
+1. **Sentry ne capture pas d'erreurs** :
+   - Vérifiez que `SENTRY_DSN` est correctement configuré
+   - Vérifiez le niveau `SENTRY_EVENT_LEVEL`
+
+2. **Logs manquants** :
+   - Vérifiez les permissions du dossier `logs/`
+   - Vérifiez la configuration `SENTRY_LOG_LEVEL`
+
+3. **Performance** :
+   - Réduisez `SENTRY_TRACES_SAMPLE_RATE` si trop de traces
+   - Ajustez les niveaux de log selon l'environnement

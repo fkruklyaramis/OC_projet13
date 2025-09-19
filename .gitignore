@@ -41,3 +41,8 @@ htmlcov/
 staticfiles/
 static/
 media/
+
+# Ignorer les logs et variables d'environnement
+logs/
+*.log
+.env
