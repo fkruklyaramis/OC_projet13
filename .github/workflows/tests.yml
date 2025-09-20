@@ -66,13 +66,16 @@ jobs:
         coverage run -m pytest -v
         echo "📊 Génération du rapport de couverture..."
         coverage report --show-missing --fail-under=80
+        echo "📋 Génération du rapport HTML..."
         coverage html
+        echo "🔍 Vérification des fichiers générés..."
+        ls -la htmlcov/ || echo "❌ Dossier htmlcov/ non trouvé"
         echo "✅ Tests terminés avec succès"
         
     # 7. Upload du rapport de couverture HTML
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
-      if: always()  # Upload même si les tests échouent
+      if: success()  # Upload seulement si les tests réussissent
       with:
         name: coverage-report-${{ github.run_number }}
         path: htmlcov/
