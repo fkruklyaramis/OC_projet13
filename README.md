@@ -320,12 +320,131 @@ coverage html
 flake8
 ```
 
+## Pipeline CI/CD et Déploiement
+
+Le projet utilise un pipeline CI/CD complet avec GitHub Actions pour automatiser les tests, le build Docker et le déploiement.
+
+### Architecture du Pipeline
+
+```
+GitHub Push (main) → Tests & Linting → Build Docker → Push Docker Hub → Déploiement Render
+```
+
+### Configuration requise
+
+#### 1. Variables d'environnement GitHub Secrets
+
+Dans les paramètres du repository GitHub (`Settings > Secrets and variables > Actions`), ajouter :
+
+- `DOCKER_PASSWORD` : Token d'accès Docker Hub
+- `SENTRY_DSN` : URL de configuration Sentry (pour production)
+- `SECRET_KEY` : Clé secrète Django pour production
+
+#### 2. Configuration Docker Hub
+
+- Repository : `francoiskrukly/oc-lettings-site`
+- Tags automatiques : `latest`, `main-<commit_sha>`, `<branch_name>`
+
+### Étapes du Pipeline
+
+#### Job 1: Tests et Linting
+- **Déclenchement** : Push sur `main`/`develop` ou Pull Request vers `main`
+- **Actions** :
+  - Setup Python 3.9 avec cache pip
+  - Installation des dépendances
+  - Linting avec flake8
+  - Vérification de la configuration Django
+  - Exécution des tests avec coverage (>80% requis)
+  - Collecte des fichiers statiques
+  - Upload du rapport de couverture
+
+#### Job 2: Conteneurisation (seulement sur main)
+- **Déclenchement** : Push sur `main` + tests réussis
+- **Actions** :
+  - Build de l'image Docker multi-architecture (linux/amd64, linux/arm64)
+  - Push vers Docker Hub avec tags automatiques
+  - Test de santé de l'image buildée
+  - Cache Docker pour optimiser les builds futurs
+
+### Test du Pipeline en Local
+
+Un script de test complet est fourni pour valider le pipeline avant déploiement :
+
+```bash
+# Tester le pipeline complet localement
+./test-pipeline.sh
+```
+
+Le script exécute :
+1. Tests et linting
+2. Build de l'image Docker
+3. Test de l'application containerisée
+4. Vérification des endpoints principaux
+
+### Configuration Docker
+
+#### Dockerfile Multi-stage
+- **Base** : `python:3.9-slim`
+- **Sécurité** : Utilisateur non-root (`appuser`)
+- **Optimisations** : Cache des dépendances, `.dockerignore` complet
+- **Production** : Gunicorn + WhiteNoise pour les fichiers statiques
+
+#### Variables d'environnement Docker
+
+Variables requises pour la production :
+```bash
+DEBUG=False
+SECRET_KEY=<votre-clé-secrète>
+ALLOWED_HOSTS=votre-domaine.com,localhost
+SENTRY_DSN=<votre-dsn-sentry>
+PORT=8000  # Port d'écoute (défaut: 8000)
+```
+
+### Commandes Docker Utiles
+
+```bash
+# Build local
+docker build -t oc-lettings-site:latest .
+
+# Test local avec variables d'environnement
+docker run -p 8000:8000 \
+  -e DEBUG=False \
+  -e SECRET_KEY=test-key \
+  -e ALLOWED_HOSTS=localhost \
+  oc-lettings-site:latest
+
+# Push vers Docker Hub (automatique via pipeline)
+docker tag oc-lettings-site:latest francoiskrukly/oc-lettings-site:latest
+docker push francoiskrukly/oc-lettings-site:latest
+```
+
+### Monitoring et Surveillance
+
+- **Sentry** : Surveillance des erreurs en temps réel
+- **Logs** : Logging multi-niveaux (console, fichier, Sentry)
+- **Health Checks** : Vérification automatique de l'état de l'application
+- **Coverage** : Suivi de la couverture de code (objectif >80%)
+
+### Déploiement Production
+
+Le déploiement sur Render se fait automatiquement via le pipeline :
+1. Push sur `main` déclenche les tests
+2. Tests réussis → Build et push Docker
+3. Image disponible → Déploiement automatique sur Render
+4. Vérifications post-déploiement
+
 ## Technologies utilisées
 
 - **Django 3.0+** : Framework web Python
 - **Python 3.9+** : Langage de programmation
+- **Docker** : Conteneurisation et déploiement
+- **GitHub Actions** : Pipeline CI/CD
+- **Docker Hub** : Registre d'images
+- **Render** : Plateforme de déploiement
 - **Sentry SDK 1.32+** : Surveillance des erreurs et performance
 - **SQLite3** : Base de données (développement)
+- **Gunicorn** : Serveur WSGI pour production
+- **WhiteNoise** : Gestion des fichiers statiques
 - **HTML/CSS/JavaScript** : Frontend
 - **Pytest** : Tests unitaires
 - **Coverage.py** : Mesure de la couverture de code

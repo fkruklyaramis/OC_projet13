@@ -1,5 +1,5 @@
 # .github/workflows/tests.yml
-name: Tests et Linting
+name: CI/CD Pipeline
 
 # Déclenchement du workflow
 on:
@@ -12,6 +12,9 @@ on:
 # Variables d'environnement globales
 env:
   PYTHON_VERSION: '3.9'
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: francoiskrukly
+  IMAGE_NAME: oc-lettings-site
 
 jobs:
   test:
@@ -102,3 +105,82 @@ jobs:
             repo: context.repo.repo,
             body: '✅ Tests et linting passés avec succès ! La couverture de code est supérieure à 80%.'
           })
+
+  # Job 2: Build et Push Docker (seulement sur main et si tests réussis)
+  docker:
+    name: Build et Push Docker
+    runs-on: ubuntu-latest
+    needs: test  # Attend que le job test soit terminé avec succès
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Seulement sur push vers main
+    
+    steps:
+    # 1. Checkout du code
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # 2. Configuration Docker Buildx pour builds multi-architecture
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    # 3. Connexion à Docker Hub
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    # 4. Extraction des métadonnées Git pour les tags
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    # 5. Build et Push de l'image Docker
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64  # Support multi-architecture
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    # 6. Test de l'image buildée
+    - name: Test Docker image
+      run: |
+        echo "🧪 Test de l'image Docker..."
+        docker run --rm -d -p 8000:8000 --name test-container \
+          -e DEBUG=False \
+          -e SECRET_KEY=test-key \
+          -e ALLOWED_HOSTS=localhost \
+          ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+        
+        # Attendre que le container démarre
+        sleep 10
+        
+        # Test de santé de l'application
+        if curl -f http://localhost:8000/ > /dev/null 2>&1; then
+          echo "✅ L'image Docker fonctionne correctement"
+        else
+          echo "❌ Erreur : L'image Docker ne répond pas"
+          exit 1
+        fi
+        
+        # Nettoyage
+        docker stop test-container
+        
+    # 7. Résumé du build
+    - name: Display build summary
+      run: |
+        echo "🎉 Image Docker buildée et pushée avec succès !"
+        echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
+        echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
+        echo "📝 SHA: ${{ github.sha }}"

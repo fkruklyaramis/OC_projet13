@@ -1,0 +1,1 @@
+sentry non activé sur image docker car pas de var d'env
