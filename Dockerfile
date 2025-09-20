@@ -20,6 +20,9 @@ COPY . .
 # Créer les répertoires nécessaires
 RUN mkdir -p static staticfiles logs
 
+# Exécuter les migrations Django
+RUN python manage.py migrate --noinput
+
 # Collecter les fichiers statiques
 RUN python manage.py collectstatic --noinput
 
