@@ -55,8 +55,8 @@ jobs:
     # 5. Préparation environnement Django
     - name: Prepare Django environment
       run: |
-        echo "📁 Création du dossier logs..."
-        mkdir -p logs
+        echo "📁 Création des dossiers requis..."
+        mkdir -p logs static staticfiles
         echo "🔧 Vérification de la configuration Django..."
         python manage.py check
         echo "✅ Configuration Django valide"
