@@ -52,9 +52,11 @@ jobs:
         flake8 --statistics --show-source
         echo "✅ Linting terminé avec succès"
         
-    # 5. Tests Django avec vérification du système
-    - name: Django system check
+    # 5. Préparation environnement Django
+    - name: Prepare Django environment
       run: |
+        echo "📁 Création du dossier logs..."
+        mkdir -p logs
         echo "🔧 Vérification de la configuration Django..."
         python manage.py check
         echo "✅ Configuration Django valide"
