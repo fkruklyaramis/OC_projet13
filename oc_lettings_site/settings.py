@@ -120,9 +120,6 @@ if not DEBUG:
     # Ajouter WhiteNoise pour servir les fichiers statiques en production
     MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
-    # Configuration WhiteNoise (sans compression pour éviter les erreurs de références CSS)
-    STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
-
 # Port pour Docker/Production
 PORT = int(os.getenv('PORT', 8000))
 
