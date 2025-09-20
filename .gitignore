@@ -37,9 +37,8 @@ htmlcov/
 .coverage
 .coverage.*
 
-# Ignorer les fichiers statiques générés
+# Ignorer les fichiers statiques générés (mais pas les sources)
 staticfiles/
-static/
 media/
 
 # Ignorer les logs et variables d'environnement
