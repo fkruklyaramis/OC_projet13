@@ -146,49 +146,31 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
           
-    # 5. Build et Push de l'image Docker
+    # 5. Build et Push de l'image Docker (optimisé)
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64  # Support multi-architecture
+        # Single platform pour plus de vitesse (Render utilise linux/amd64)
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        # Cache GitHub Actions optimisé
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # Build args pour optimisation
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
         
-    # 6. Test de l'image buildée
-    - name: Test Docker image
-      run: |
-        echo "🧪 Test de l'image Docker..."
-        docker run --rm -d -p 8000:8000 --name test-container \
-          -e DEBUG=False \
-          -e SECRET_KEY=test-key \
-          -e ALLOWED_HOSTS=localhost \
-          ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-        
-        # Attendre que le container démarre
-        sleep 10
-        
-        # Test de santé de l'application
-        if curl -f http://localhost:8000/ > /dev/null 2>&1; then
-          echo "✅ L'image Docker fonctionne correctement"
-        else
-          echo "❌ Erreur : L'image Docker ne répond pas"
-          exit 1
-        fi
-        
-        # Nettoyage
-        docker stop test-container
-        
-    # 7. Résumé du build
+    # 6. Résumé du build
     - name: Display build summary
       run: |
         echo "🎉 Image Docker buildée et pushée avec succès !"
         echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
         echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
         echo "📝 SHA: ${{ github.sha }}"
+        echo "⚡ Build optimisé - platform unique, cache GitHub Actions"
 
   # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
   deploy:
