@@ -1,0 +1,104 @@
+# .github/workflows/tests.yml
+name: Tests et Linting
+
+# Déclenchement du workflow
+on:
+  push:
+    branches: [ "main", "develop" ]  # Sur push vers main et develop
+  pull_request:
+    branches: [ "main" ]  # Sur PR vers main
+  workflow_dispatch:  # Permet de lancer manuellement
+
+# Variables d'environnement globales
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  test:
+    name: Tests, Linting et Coverage
+    runs-on: ubuntu-latest
+    
+    # Variables d'environnement pour les tests
+    env:
+      DEBUG: 'False'
+      SECRET_KEY: 'test-secret-key-for-ci-cd-only-not-production'
+      ALLOWED_HOSTS: 'localhost,127.0.0.1'
+    
+    steps:
+    # 1. Checkout du code
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # 2. Configuration Python
+    - name: Setup Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'  # Cache des dépendances pip
+        
+    # 3. Installation des dépendances
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    # 4. Linting avec flake8
+    - name: Lint with flake8
+      run: |
+        echo "🔍 Vérification du code avec flake8..."
+        flake8 --statistics --show-source
+        echo "✅ Linting terminé avec succès"
+        
+    # 5. Tests Django avec vérification du système
+    - name: Django system check
+      run: |
+        echo "🔧 Vérification de la configuration Django..."
+        python manage.py check
+        echo "✅ Configuration Django valide"
+        
+    # 6. Tests unitaires avec couverture
+    - name: Run tests with coverage
+      run: |
+        echo "🧪 Exécution des tests avec couverture..."
+        coverage run -m pytest -v
+        echo "📊 Génération du rapport de couverture..."
+        coverage report --show-missing --fail-under=80
+        coverage html
+        echo "✅ Tests terminés avec succès"
+        
+    # 7. Upload du rapport de couverture HTML
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      if: always()  # Upload même si les tests échouent
+      with:
+        name: coverage-report-${{ github.run_number }}
+        path: htmlcov/
+        retention-days: 7
+        
+    # 8. Collecte des fichiers statiques (test production)
+    - name: Collect static files
+      run: |
+        echo "📦 Test de collecte des fichiers statiques..."
+        python manage.py collectstatic --noinput
+        echo "✅ Fichiers statiques collectés"
+        
+    # 9. Affichage du résumé
+    - name: Display summary
+      if: success()
+      run: |
+        echo "🎉 Tous les tests sont passés avec succès !"
+        echo "📈 Couverture de code : $(coverage report --precision=1 | tail -1 | awk '{print $4}')"
+        echo "🚀 Prêt pour la conteneurisation et le déploiement"
+        
+    # 10. Commentaire sur la PR avec les résultats (optionnel)
+    - name: Comment PR
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ Tests et linting passés avec succès ! La couverture de code est supérieure à 80%.'
+          })

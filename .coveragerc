@@ -1,0 +1,32 @@
+# .coveragerc
+[run]
+source = .
+omit = 
+    */migrations/*
+    */venv/*
+    */env/*
+    manage.py
+    */settings.py
+    */wsgi.py
+    */asgi.py
+    */apps.py
+    */__pycache__/*
+    */tests.py
+    */.git/*
+    */staticfiles/*
+    */htmlcov/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

@@ -5,6 +5,7 @@ Ce module contient tous les tests pour les modèles, vues et URLs
 de l'application profiles.
 """
 import pytest
+from unittest.mock import patch
 from django.urls import reverse
 from django.test import Client
 from django.contrib.auth.models import User
@@ -97,6 +98,45 @@ class TestProfilesViews:
             reverse('profiles:profile', kwargs={'username': 'nonexistent'})
         )
         assert response.status_code == 404
+
+    @patch('profiles.views.logger')
+    def test_index_view_logging(self, mock_logger, client, profile):
+        """Test que les logs sont appelés correctement dans la vue index."""
+        response = client.get(reverse('profiles:index'))
+        assert response.status_code == 200
+
+        # Vérifier que les logs ont été appelés
+        assert mock_logger.info.call_count == 2
+        mock_logger.info.assert_any_call("Accès à la liste des profils par 127.0.0.1")
+        mock_logger.info.assert_any_call("Récupération de 1 profils")
+
+    @patch('profiles.views.logger')
+    def test_profile_detail_view_logging(self, mock_logger, client, profile):
+        """Test que les logs sont appelés correctement dans la vue détail."""
+        user = profile.user
+        response = client.get(
+            reverse('profiles:profile', kwargs={'username': user.username})
+        )
+        assert response.status_code == 200
+
+        # Vérifier que les logs ont été appelés
+        assert mock_logger.info.call_count == 2
+        expected_log = f"Accès au profil '{user.username}' par 127.0.0.1"
+        mock_logger.info.assert_any_call(expected_log)
+        expected_success = f"Profil de {user.username} récupéré avec succès"
+        mock_logger.info.assert_any_call(expected_success)
+
+    @patch('profiles.views.logger')
+    def test_profile_detail_view_404_logging(self, mock_logger, client):
+        """Test que les logs d'avertissement sont appelés pour une 404."""
+        response = client.get(
+            reverse('profiles:profile', kwargs={'username': 'nonexistent'})
+        )
+        assert response.status_code == 404
+
+        # Vérifier que le log warning a été appelé
+        expected_warning = "Profil 'nonexistent' introuvable - 404"
+        mock_logger.warning.assert_called_once_with(expected_warning)
 
 
 @pytest.mark.django_db

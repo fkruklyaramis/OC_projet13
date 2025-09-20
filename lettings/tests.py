@@ -5,6 +5,7 @@ Ce module contient tous les tests pour les modèles, vues et URLs
 de l'application lettings.
 """
 import pytest
+from unittest.mock import patch
 from django.urls import reverse
 from django.test import Client
 from lettings.models import Address, Letting
@@ -105,6 +106,68 @@ class TestLettingsViews:
             reverse('lettings:letting', kwargs={'letting_id': 9999})
         )
         assert response.status_code == 404
+
+    @patch('lettings.views.logger')
+    def test_index_view_logging(self, mock_logger, client, letting):
+        """Test que les logs sont appelés correctement dans la vue index."""
+        response = client.get(reverse('lettings:index'))
+        assert response.status_code == 200
+
+        # Vérifier que les logs ont été appelés
+        assert mock_logger.info.call_count == 2
+        mock_logger.info.assert_any_call("Accès à la liste des lettings par 127.0.0.1")
+        mock_logger.info.assert_any_call("Récupération de 1 lettings")
+
+    @patch('lettings.views.logger')
+    def test_letting_detail_view_logging(self, mock_logger, client, letting):
+        """Test que les logs sont appelés correctement dans la vue détail."""
+        response = client.get(
+            reverse('lettings:letting', kwargs={'letting_id': letting.id})
+        )
+        assert response.status_code == 200
+
+        # Vérifier que les logs ont été appelés
+        assert mock_logger.info.call_count == 2
+        mock_logger.info.assert_any_call("Accès au letting ID 1 par 127.0.0.1")
+        mock_logger.info.assert_any_call("Letting 'Test Letting' récupéré avec succès")
+
+    @patch('lettings.views.logger')
+    def test_letting_detail_view_404_logging(self, mock_logger, client):
+        """Test que les logs d'avertissement sont appelés pour une 404."""
+        response = client.get(
+            reverse('lettings:letting', kwargs={'letting_id': 9999})
+        )
+        assert response.status_code == 404
+
+        # Vérifier que le log warning a été appelé
+        mock_logger.warning.assert_called_once_with("Letting avec l'ID 9999 introuvable - 404")
+
+    @patch('lettings.models.Letting.objects.all')
+    @patch('lettings.views.logger')
+    def test_index_view_exception_handling(self, mock_logger, mock_all, client):
+        """Test la gestion d'exception dans la vue index."""
+        # Simuler une exception
+        mock_all.side_effect = Exception("Database error")
+
+        with pytest.raises(Exception):
+            client.get(reverse('lettings:index'))
+
+        # Vérifier que l'erreur a été loggée
+        mock_logger.error.assert_called_once_with("Erreur lors de la récupération des lettings: Database error")
+
+    @patch('lettings.views.get_object_or_404')
+    @patch('lettings.views.logger')
+    def test_letting_detail_view_exception_handling(self, mock_logger, mock_get, client):
+        """Test la gestion d'exception dans la vue détail."""
+        # Simuler une exception (autre que Http404)
+        mock_get.side_effect = Exception("Database connection error")
+
+        with pytest.raises(Exception):
+            client.get(reverse('lettings:letting', kwargs={'letting_id': 1}))
+
+        # Vérifier que l'erreur a été loggée
+        expected_message = "Erreur lors de la récupération du letting 1: Database connection error"
+        mock_logger.error.assert_called_once_with(expected_message)
 
 
 @pytest.mark.django_db
