@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Créer les répertoires nécessaires
-RUN mkdir -p staticfiles logs
+RUN mkdir -p static staticfiles logs
 
 # Collecter les fichiers statiques
 RUN python manage.py collectstatic --noinput
