@@ -189,3 +189,67 @@ jobs:
         echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
         echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
         echo "📝 SHA: ${{ github.sha }}"
+
+  # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: [test, docker]  # Attend que test et docker soient terminés avec succès
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Seulement sur push vers main
+    
+    steps:
+    # 1. Déclenchement du déploiement Render
+    - name: Deploy to Render
+      run: |
+        echo "🚀 Déclenchement du déploiement sur Render..."
+        response=$(curl -s -w "%{http_code}" -o /tmp/deploy_response.json \
+          -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
+        
+        if [ "$response" = "200" ] || [ "$response" = "201" ]; then
+          echo "✅ Déploiement déclenché avec succès"
+          echo "📋 Réponse Render:"
+          cat /tmp/deploy_response.json
+          echo ""
+        else
+          echo "❌ Erreur lors du déclenchement du déploiement"
+          echo "📋 Code de réponse HTTP: $response"
+          echo "📋 Réponse:"
+          cat /tmp/deploy_response.json || echo "Aucune réponse reçue"
+          exit 1
+        fi
+    
+    # 2. Attendre et vérifier le déploiement
+    - name: Wait for deployment
+      run: |
+        echo "⏳ Attente de la disponibilité du déploiement..."
+        echo "🌐 URL de production: https://oc-lettings-siteeur.onrender.com"
+        
+        # Attendre 60 secondes pour laisser le temps au déploiement de commencer
+        sleep 60
+        
+        # Tentatives de vérification (max 5 minutes)
+        for i in {1..10}; do
+          echo "🔍 Tentative $i/10 de vérification..."
+          if curl -f -s --max-time 10 https://oc-lettings-siteeur.onrender.com/ > /dev/null; then
+            echo "✅ Application déployée et accessible !"
+            break
+          else
+            echo "⏳ Application pas encore prête, attente de 30 secondes..."
+            sleep 30
+          fi
+          
+          if [ $i -eq 10 ]; then
+            echo "⚠️  Application peut encore être en cours de déploiement"
+            echo "🔗 Vérifiez manuellement: https://oc-lettings-siteeur.onrender.com"
+          fi
+        done
+    
+    # 3. Résumé du déploiement
+    - name: Deployment summary
+      run: |
+        echo "🎉 Processus de déploiement terminé !"
+        echo "🌐 URL de production: https://oc-lettings-siteeur.onrender.com"
+        echo "🔗 Admin: https://oc-lettings-siteeur.onrender.com/admin/"
+        echo "📊 Logs Render: https://dashboard.render.com"
+        echo "📝 Commit déployé: ${{ github.sha }}"
+        echo "👤 Déployé par: ${{ github.actor }}"
