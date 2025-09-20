@@ -23,6 +23,9 @@ RUN mkdir -p static staticfiles logs
 # Exécuter les migrations Django
 RUN python manage.py migrate --noinput
 
+# Initialiser les données de production (superuser + données de démonstration)
+RUN python manage.py setup_production
+
 # Collecter les fichiers statiques
 RUN python manage.py collectstatic --noinput
 
