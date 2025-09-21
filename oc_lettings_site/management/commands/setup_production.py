@@ -15,12 +15,36 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    """Commande pour setup automatique des données en production"""
+    """
+    Commande Django pour l'initialisation automatique des données de production.
+
+    Cette commande crée automatiquement un superuser administrateur et des données
+    de démonstration (utilisateurs, profils, adresses et lettings) si elles
+    n'existent pas déjà dans la base de données.
+
+    Utilisée principalement lors du déploiement Docker pour garantir que
+    l'application a des données initiales fonctionnelles.
+
+    Attributes:
+        help (str): Description de la commande affichée dans --help
+
+    Examples:
+        python manage.py setup_production
+        python manage.py setup_production --force
+    """
 
     help = 'Setup automatique du superuser et des données de démonstration pour la production'
 
     def add_arguments(self, parser):
-        """Ajouter des arguments à la commande"""
+        """
+        Ajouter les arguments de ligne de commande disponibles.
+
+        Args:
+            parser (ArgumentParser): Parser d'arguments Django
+
+        Note:
+            --force : Force la recréation des données même si elles existent
+        """
         parser.add_argument(
             '--force',
             action='store_true',
@@ -28,7 +52,29 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        """Exécuter la commande de setup"""
+        """
+        Point d'entrée principal de la commande Django.
+
+        Exécute le processus complet d'initialisation des données de production :
+        1. Création du superuser administrateur
+        2. Création des données de démonstration (utilisateurs, profils, lettings)
+
+        Args:
+            *args: Arguments positionnels (non utilisés)
+            **options: Options de la commande
+                - force (bool): Si True, force la recréation des données existantes
+
+        Raises:
+            Exception: En cas d'erreur lors du setup, loggée et re-lancée
+
+        Returns:
+            None
+
+        Side Effects:
+            - Crée des enregistrements en base de données
+            - Affiche des messages de progression sur stdout
+            - Enregistre des logs via le logger
+        """
         self.stdout.write(self.style.SUCCESS('🚀 Démarrage du setup production...'))
 
         try:
@@ -48,7 +94,31 @@ class Command(BaseCommand):
             raise
 
     def _create_superuser(self, force=False):
-        """Créer le superuser admin si il n'existe pas"""
+        """
+        Créer le superuser administrateur pour l'application.
+
+        Crée un compte administrateur avec les identifiants par défaut si il n'existe
+        pas déjà. En mode force, supprime et recrée le superuser existant.
+
+        Args:
+            force (bool): Si True, supprime et recrée le superuser même s'il existe.
+                         Si False (défaut), ignore si le superuser existe déjà.
+
+        Returns:
+            None
+
+        Side Effects:
+            - Crée un User avec is_superuser=True en base de données
+            - Affiche des messages informatifs sur stdout
+            - Enregistre des logs via le logger
+            - En mode force : supprime le superuser existant
+
+        Note:
+            Identifiants par défaut :
+            - Username: admin
+            - Password: admin  # À changer en production réelle
+            - Email: admin@oc-lettings.com
+        """
         username = 'admin'
         email = 'admin@oc-lettings.com'
         password = 'admin'  # En production, utiliser une variable d'environnement
@@ -74,7 +144,45 @@ class Command(BaseCommand):
         logger.info(f"Superuser créé: {username}")
 
     def _create_demo_data(self, force=False):
-        """Créer des données de démonstration"""
+        """
+        Créer un jeu complet de données de démonstration pour l'application.
+
+        Génère des utilisateurs, profils, adresses et lettings de test pour permettre
+        une démonstration fonctionnelle de l'application sans données réelles.
+
+        Données créées :
+        - 4 utilisateurs normaux avec profils associés
+        - 4 adresses dans différentes villes
+        - 4 lettings correspondants aux adresses
+
+        Args:
+            force (bool): Si True, supprime toutes les données existantes avant création.
+                         Si False (défaut), ignore si des données existent déjà.
+
+        Returns:
+            None
+
+        Side Effects:
+            - Crée des enregistrements User, Profile, Address, Letting en base
+            - En mode force : supprime TOUTES les données existantes (ATTENTION!)
+            - Affiche un résumé des créations sur stdout
+            - Enregistre des logs de succès
+
+        Warning:
+            Le mode force supprime TOUTES les données utilisateurs existantes
+            (sauf les superusers). À utiliser avec précaution.
+
+        Data Structure:
+            Utilisateurs créés :
+            - john_doe (Paris), jane_smith (London)
+            - bob_wilson (New York), alice_brown (Tokyo)
+
+            Lettings créés :
+            - "Cozy Downtown Apartment" (Paris)
+            - "Modern Loft in City Center" (London)
+            - "Sunny Beach House" (Miami)
+            - "Mountain View Cabin" (Denver)
+        """
         if not force and (Letting.objects.exists() or Profile.objects.exists()):
             self.stdout.write('ℹ️  Données de démonstration déjà présentes')
             return
