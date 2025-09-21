@@ -45,3 +45,9 @@ media/
 logs/
 *.log
 .env
+
+# Ignorer les fichiers générés par Sphinx
+docs/build/
+docs/source/_build/
+.doctrees/
+.buildinfo

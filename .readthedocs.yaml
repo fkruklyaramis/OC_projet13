@@ -1,0 +1,19 @@
+# Configuration Read the Docs
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+
+version: 2
+
+# Configuration de build
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.9"
+
+# Configuration Sphinx
+sphinx:
+   configuration: docs/source/conf.py
+
+# Configuration Python
+python:
+   install:
+   - requirements: docs/requirements.txt
