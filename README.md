@@ -129,7 +129,7 @@ open htmlcov/index.html
 #### Panel d'administration
 
 - Aller sur `http://localhost:8000/admin`
-- Connectez-vous avec l'utilisateur `admin`, mot de passe `Abc1234!`
+- Connectez-vous avec l'utilisateur `admin`, mot de passe `admin!`
 
 ### Windows
 
@@ -383,7 +383,7 @@ GitHub Actions   Python 3.9        Docker Build    francoiskrukly/      Applicat
 - 👤 Utilisateur non-root (`appuser`)
 - 🗃️ Cache des dépendances pip
 - 🔧 Migrations automatiques
-- 👑 **Initialisation automatique superadmin** (`admin`/`admin123`)
+- 👑 **Initialisation automatique superadmin** (`admin`/`admin`)
 - 🏠 **Données de démonstration automatiques** (4 locations + profils)
 - 📦 Collecte fichiers statiques
 
@@ -402,7 +402,7 @@ GitHub Actions   Python 3.9        Docker Build    francoiskrukly/      Applicat
 - ✅ Application entièrement fonctionnelle
 - ✅ Fichiers statiques servis correctement (CSS, JS, images)
 - ✅ Interface d'administration accessible
-- ✅ **Superuser créé automatiquement** : `admin` / `admin123`
+- ✅ **Superuser créé automatiquement** : `admin` / `admin`
 - ✅ **4 locations de démonstration** avec profils utilisateurs
 - ✅ Surveillance Sentry (optionnelle)
 
@@ -526,7 +526,7 @@ L'implémentation complète du pipeline CI/CD a nécessité la création et conf
 
 #### 4. Commande de Management Django
 - **`oc_lettings_site/management/commands/setup_production.py`** : 
-  - Création automatique superuser (admin/admin123)
+  - Création automatique superuser (admin/admin)
   - Génération données de démonstration (4 locations + profils)
   - Exécuté automatiquement dans Dockerfile
   - 175 lignes de code d'initialisation
@@ -589,7 +589,7 @@ docker run -p 8000:8000 \
   oc-lettings-site:local
 
 # Accès : http://localhost:8000
-# Admin : http://localhost:8000/admin (admin/admin123)
+# Admin : http://localhost:8000/admin (admin/admin)
 ```
 
 ## Documentation technique - Read The Docs
