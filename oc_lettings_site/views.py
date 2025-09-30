@@ -194,24 +194,24 @@ def test_sentry_500(request):
 def test_sentry_manual(request):
     """
     Vue de test pour forcer l'envoi manuel vers Sentry.
-    
+
     Cette vue permet de tester la configuration Sentry en envoyant
     manuellement des événements de différents niveaux.
-    
+
     Args:
         request (HttpRequest): Requête HTTP
-        
+
     Returns:
         HttpResponse: Confirmation des envois Sentry
     """
     from django.conf import settings
     from django.http import HttpResponse
     import os
-    
+
     if not settings.DEBUG:
         from django.http import Http404
         raise Http404("Page non trouvée")
-    
+
     # Vérifier la configuration Sentry
     sentry_dsn = os.getenv('SENTRY_DSN')
     if not sentry_dsn:
@@ -220,32 +220,32 @@ def test_sentry_manual(request):
         <p>SENTRY_DSN n'est pas défini dans les variables d'environnement</p>
         <p>Créez un fichier .env avec votre DSN Sentry</p>
         """, content_type='text/html')
-    
+
     # Tests d'envoi Sentry
     results = []
-    
+
     try:
         # Test 1: Message WARNING (404)
         sentry_sdk.capture_message(
-            "Test manuel 404", 
+            "Test manuel 404",
             level='warning',
             extra={'test': 'manual_404', 'url': request.path}
         )
         results.append("✅ Message WARNING (404) envoyé")
     except Exception as e:
         results.append(f"❌ Erreur WARNING: {e}")
-    
+
     try:
-        # Test 2: Message ERROR (500)  
+        # Test 2: Message ERROR (500)
         sentry_sdk.capture_message(
             "Test manuel 500",
-            level='error', 
+            level='error',
             extra={'test': 'manual_500', 'url': request.path}
         )
         results.append("✅ Message ERROR (500) envoyé")
     except Exception as e:
         results.append(f"❌ Erreur ERROR: {e}")
-    
+
     try:
         # Test 3: Exception
         try:
@@ -255,9 +255,9 @@ def test_sentry_manual(request):
             results.append("✅ Exception capturée et envoyée")
     except Exception as e:
         results.append(f"❌ Erreur exception: {e}")
-    
+
     html_results = "<br>".join(results)
-    
+
     return HttpResponse(f"""
     <h1>🔍 Test Sentry Manuel</h1>
     <p><strong>DSN configurée:</strong> {sentry_dsn[:50]}...</p>
