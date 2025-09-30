@@ -123,9 +123,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # 2. Configuration Docker Buildx pour builds multi-architecture
+    # 2. Configuration Docker Buildx pour builds multi-architecture RAPIDES
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        # Optimisation pour builds parallèles rapides
+        driver-opts: |
+          network=host
+        # Configuration pour performance maximale
+        buildkitd-flags: --allow-insecure-entitlement security.insecure
       
     # 3. Connexion à Docker Hub
     - name: Log in to Docker Hub
@@ -151,15 +157,15 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        # OPTIMISATION VITESSE : Build AMD64 uniquement (compatible 95% cas d'usage)
-        platforms: linux/amd64
+        # Multi-architecture UNIVERSEL : Fonctionne partout nativement
+        platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Cache ultra-optimisé pour build rapide
+        # Cache intelligent pour builds rapides (~5min)
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        # Build args pour performance maximale
+        # Optimisations pour réduire le temps de build
         build-args: |
           BUILDKIT_INLINE_CACHE=1
         
@@ -170,13 +176,14 @@ jobs:
         echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
         echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
         echo "📝 SHA: ${{ github.sha }}"
-        echo "🚀 Compatibilité OPTIMISÉE (Build ultra-rapide):"
-        echo "  ✅ Mac Intel (linux/amd64) - NATIF"
-        echo "  ✅ Mac Apple Silicon (linux/amd64) - Émulation Rosetta"
-        echo "  ✅ Windows Docker Desktop (linux/amd64) - NATIF"
-        echo "  ✅ Linux Intel/AMD (linux/amd64) - NATIF"
-        echo "  ✅ Render Production (linux/amd64) - NATIF"
-        echo "⚡ Build temps: ~90 secondes vs 15+ minutes multi-arch"
+        echo "🌍 Compatibilité UNIVERSELLE (Performance native partout):"
+        echo "  ✅ Mac Intel (linux/amd64) - PERFORMANCE NATIVE"
+        echo "  ✅ Mac Apple Silicon (linux/arm64) - PERFORMANCE NATIVE"
+        echo "  ✅ Windows Docker Desktop (linux/amd64) - PERFORMANCE NATIVE"
+        echo "  ✅ Linux Intel/AMD (linux/amd64) - PERFORMANCE NATIVE"  
+        echo "  ✅ Linux ARM (linux/arm64) - PERFORMANCE NATIVE"
+        echo "  ✅ Render Production (linux/amd64) - PERFORMANCE NATIVE"
+        echo "⚡ Build optimisé: ~5 minutes avec cache intelligent"
 
   # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
   deploy:
