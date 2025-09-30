@@ -151,12 +151,12 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        # Multi-platform pour compatibilité Mac Apple Silicon + Render
+        # Multi-platform UNIVERSEL : Windows, Mac (Intel + Apple Silicon), Linux, Render
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Cache GitHub Actions optimisé
+        # Cache optimisé pour accélérer les builds répétés
         cache-from: type=gha
         cache-to: type=gha,mode=max
         # Build args pour optimisation
@@ -170,7 +170,13 @@ jobs:
         echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
         echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
         echo "📝 SHA: ${{ github.sha }}"
-        echo "⚡ Build optimisé - platform unique, cache GitHub Actions"
+        echo "🌍 Compatibilité UNIVERSELLE:"
+        echo "  ✅ Mac Intel (linux/amd64)"
+        echo "  ✅ Mac Apple Silicon (linux/arm64)"
+        echo "  ✅ Windows Docker Desktop (linux/amd64)"
+        echo "  ✅ Linux (amd64 + arm64)"
+        echo "  ✅ Render Production (linux/amd64)"
+        echo "⚡ Cache GitHub Actions pour accélérer les builds"
 
   # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
   deploy:
