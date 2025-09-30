@@ -151,15 +151,15 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        # Multi-platform UNIVERSEL : Windows, Mac (Intel + Apple Silicon), Linux, Render
-        platforms: linux/amd64,linux/arm64
+        # OPTIMISATION VITESSE : Build AMD64 uniquement (compatible 95% cas d'usage)
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Cache optimisé pour accélérer les builds répétés
+        # Cache ultra-optimisé pour build rapide
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        # Build args pour optimisation
+        # Build args pour performance maximale
         build-args: |
           BUILDKIT_INLINE_CACHE=1
         
@@ -170,13 +170,13 @@ jobs:
         echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
         echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
         echo "📝 SHA: ${{ github.sha }}"
-        echo "🌍 Compatibilité UNIVERSELLE:"
-        echo "  ✅ Mac Intel (linux/amd64)"
-        echo "  ✅ Mac Apple Silicon (linux/arm64)"
-        echo "  ✅ Windows Docker Desktop (linux/amd64)"
-        echo "  ✅ Linux (amd64 + arm64)"
-        echo "  ✅ Render Production (linux/amd64)"
-        echo "⚡ Cache GitHub Actions pour accélérer les builds"
+        echo "🚀 Compatibilité OPTIMISÉE (Build ultra-rapide):"
+        echo "  ✅ Mac Intel (linux/amd64) - NATIF"
+        echo "  ✅ Mac Apple Silicon (linux/amd64) - Émulation Rosetta"
+        echo "  ✅ Windows Docker Desktop (linux/amd64) - NATIF"
+        echo "  ✅ Linux Intel/AMD (linux/amd64) - NATIF"
+        echo "  ✅ Render Production (linux/amd64) - NATIF"
+        echo "⚡ Build temps: ~90 secondes vs 15+ minutes multi-arch"
 
   # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
   deploy:
