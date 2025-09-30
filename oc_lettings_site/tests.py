@@ -161,6 +161,58 @@ class TestMainViews:
         response = client.get('/test-500/')
         assert response.status_code == 404
 
+        response = client.get('/test-sentry/')
+        assert response.status_code == 404
+
+    @patch.dict('os.environ', {}, clear=True)
+    @patch('oc_lettings_site.views.sentry_sdk')
+    def test_sentry_manual_no_dsn(self, mock_sentry, client, settings):
+        """Test la vue test_sentry_manual sans DSN configurée."""
+        settings.DEBUG = True
+
+        response = client.get('/test-sentry/')
+        assert response.status_code == 200
+        assert 'Sentry non configuré' in response.content.decode()
+        assert 'SENTRY_DSN' in response.content.decode()
+
+    @patch.dict('os.environ', {'SENTRY_DSN': 'https://test@sentry.io/123'})
+    @patch('oc_lettings_site.views.sentry_sdk')
+    def test_sentry_manual_with_dsn(self, mock_sentry, client, settings):
+        """Test la vue test_sentry_manual avec DSN configurée."""
+        settings.DEBUG = True
+
+        response = client.get('/test-sentry/')
+        assert response.status_code == 200
+
+        content = response.content.decode()
+        assert 'Test Sentry Manuel' in content
+        assert 'https://test@sentry.io/123' in content
+        assert 'Message WARNING (404) envoyé' in content
+        assert 'Message ERROR (500) envoyé' in content
+        assert 'Exception capturée et envoyée' in content
+
+        # Vérifier que les appels Sentry ont été faits
+        assert mock_sentry.capture_message.call_count == 2
+        assert mock_sentry.capture_exception.call_count == 1
+
+    @patch.dict('os.environ', {'SENTRY_DSN': 'https://test@sentry.io/123'})
+    @patch('oc_lettings_site.views.sentry_sdk')
+    def test_sentry_manual_with_sentry_error(self, mock_sentry, client, settings):
+        """Test la vue test_sentry_manual quand Sentry lève une erreur."""
+        settings.DEBUG = True
+
+        # Simuler une erreur Sentry
+        mock_sentry.capture_message.side_effect = Exception("Sentry error")
+        mock_sentry.capture_exception.side_effect = Exception("Sentry error")
+
+        response = client.get('/test-sentry/')
+        assert response.status_code == 200
+
+        content = response.content.decode()
+        assert 'Test Sentry Manuel' in content
+        # Vérifier que les erreurs sont gérées gracieusement
+        assert 'Erreur WARNING:' in content or 'Erreur ERROR:' in content
+
 
 class TestMainURLs:
     """Tests pour les URLs principales de l'application."""
