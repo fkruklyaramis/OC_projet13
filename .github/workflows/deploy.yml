@@ -151,8 +151,8 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        # Single platform pour plus de vitesse (Render utilise linux/amd64)
-        platforms: linux/amd64
+        # Multi-platform pour compatibilité Mac Apple Silicon + Render
+        platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
