@@ -7,7 +7,6 @@ les handlers d'erreurs personnalisés avec intégration Sentry.
 import logging
 import sentry_sdk
 from django.shortcuts import render
-from django.http import HttpResponseNotFound, HttpResponseServerError
 
 logger = logging.getLogger('oc_lettings_site')
 
@@ -66,26 +65,34 @@ def handler404(request, exception):
         exception (Http404): L'exception 404 levée
 
     Returns:
-        HttpResponseNotFound: Réponse 404 avec template personnalisé
+        HttpResponse: Réponse 404 avec template personnalisé
     """
-    error_message = f"404 - Page non trouvée: {request.path}"
-    logger.warning(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
+    try:
+        error_message = f"404 - Page non trouvée: {request.path}"
+        logger.warning(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
 
-    # Capturer l'événement dans Sentry avec niveau WARNING
-    sentry_sdk.capture_message(
-        error_message,
-        level='warning',
-        extra={
-            'path': request.path,
-            'method': request.method,
-            'ip_address': request.META.get('REMOTE_ADDR'),
-            'user_agent': request.META.get('HTTP_USER_AGENT'),
-        }
-    )
+        # Capturer l'événement dans Sentry avec niveau WARNING (seulement si Sentry configuré)
+        try:
+            sentry_sdk.capture_message(
+                error_message,
+                level='warning',
+                extra={
+                    'path': request.path,
+                    'method': request.method,
+                    'ip_address': request.META.get('REMOTE_ADDR'),
+                    'user_agent': request.META.get('HTTP_USER_AGENT'),
+                }
+            )
+        except Exception:
+            # Si Sentry échoue, continuer sans interrompre le handler
+            pass
 
-    return HttpResponseNotFound(
-        render(request, '404.html', status=404).content
-    )
+        return render(request, '404.html', status=404)
+    except Exception as e:
+        # Fallback si le handler échoue complètement
+        logger.error(f"Erreur dans handler404: {e}")
+        from django.http import HttpResponseNotFound
+        return HttpResponseNotFound('<h1>404 - Page non trouvée</h1>')
 
 
 def handler500(request):
@@ -99,26 +106,34 @@ def handler500(request):
         request (HttpRequest): Requête HTTP qui a causé l'erreur 500
 
     Returns:
-        HttpResponseServerError: Réponse 500 avec template personnalisé
+        HttpResponse: Réponse 500 avec template personnalisé
     """
-    error_message = f"500 - Erreur serveur interne sur: {request.path}"
-    logger.error(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
+    try:
+        error_message = f"500 - Erreur serveur interne sur: {request.path}"
+        logger.error(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
 
-    # Capturer l'événement dans Sentry avec niveau ERROR
-    sentry_sdk.capture_message(
-        error_message,
-        level='error',
-        extra={
-            'path': request.path,
-            'method': request.method,
-            'ip_address': request.META.get('REMOTE_ADDR'),
-            'user_agent': request.META.get('HTTP_USER_AGENT'),
-        }
-    )
+        # Capturer l'événement dans Sentry avec niveau ERROR (seulement si Sentry configuré)
+        try:
+            sentry_sdk.capture_message(
+                error_message,
+                level='error',
+                extra={
+                    'path': request.path,
+                    'method': request.method,
+                    'ip_address': request.META.get('REMOTE_ADDR'),
+                    'user_agent': request.META.get('HTTP_USER_AGENT'),
+                }
+            )
+        except Exception:
+            # Si Sentry échoue, continuer sans interrompre le handler
+            pass
 
-    return HttpResponseServerError(
-        render(request, '500.html', status=500).content
-    )
+        return render(request, '500.html', status=500)
+    except Exception as e:
+        # Fallback si le handler échoue complètement
+        logger.error(f"Erreur dans handler500: {e}")
+        from django.http import HttpResponseServerError
+        return HttpResponseServerError('<h1>500 - Erreur serveur interne</h1>')
 
 
 def test_sentry_404(request):
