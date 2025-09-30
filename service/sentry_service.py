@@ -7,6 +7,25 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 
+def _filter_sentry_events(event, hint):
+    """
+    Filtre les événements Sentry pour personnaliser ce qui est envoyé.
+
+    Cette fonction permet de modifier ou rejeter certains événements avant
+    leur envoi à Sentry, pour réduire le bruit ou ajouter du contexte.
+
+    Args:
+        event (dict): Événement Sentry à traiter
+        hint (dict): Métadonnées sur l'événement (exception originale, etc.)
+
+    Returns:
+        dict|None: Événement modifié ou None pour rejeter l'événement
+    """
+    # Accepter tous les événements (pas de filtrage pour l'instant)
+    # Possibilité future : filtrer certains types d'erreurs, IPs, etc.
+    return event
+
+
 def configure_sentry():
     """
     Configure et initialise Sentry SDK pour le monitoring et la gestion d'erreurs.
@@ -78,6 +97,7 @@ def configure_sentry():
                 transaction_style='url',
                 middleware_spans=True,
                 signals_spans=True,
+                cache_spans=True,
             ),
             sentry_logging,
         ],
@@ -86,12 +106,18 @@ def configure_sentry():
 
         # Envoi des informations personnelles (activé par défaut selon Sentry)
         send_default_pii=True,
+        
+        # Capturer toutes les erreurs HTTP (y compris 404)
+        capture_unhandled_promise_rejections=True,
 
         # Configuration de l'environnement
         environment=os.getenv('SENTRY_ENVIRONMENT', 'development'),
 
         # Version de l'application
         release=os.getenv('SENTRY_RELEASE', 'unknown'),
+        
+        # Fonction pour filtrer les événements (optionnel)
+        before_send=_filter_sentry_events,
     )
 
     print(f"Sentry configuré pour l'environnement: {os.getenv('SENTRY_ENVIRONMENT', 'development')}")

@@ -335,14 +335,49 @@ L'application utilise une architecture de logging sophistiquée :
 - Gestion différenciée des niveaux selon l'environnement
 - Rotation automatique des fichiers de logs
 
-#### 6. Configuration pour la production
+#### 6. Test de la configuration Sentry
+
+**Test des erreurs 404 et 500 :**
+
+L'application inclut des vues de test pour vérifier que Sentry capture bien les erreurs :
+
+```bash
+# Démarrer le serveur en mode DEBUG
+python manage.py runserver
+
+# Tester la capture d'erreur 404
+curl http://localhost:8000/test-404/
+
+# Tester la capture d'erreur 500  
+curl http://localhost:8000/test-500/
+
+# Générer une 404 naturelle
+curl http://localhost:8000/page-inexistante/
+```
+
+**Vérification dans Sentry :**
+1. Connectez-vous à votre dashboard Sentry
+2. Vérifiez que les événements apparaissent dans **Issues**
+3. Les erreurs 404 apparaissent avec niveau **WARNING**
+4. Les erreurs 500 apparaissent avec niveau **ERROR**
+
+**Configuration pour capturer les 404 :**
+```bash
+# Dans votre .env, configurez le niveau WARNING
+SENTRY_EVENT_LEVEL=WARNING
+
+# Redémarrez le serveur pour appliquer
+python manage.py runserver
+```
+
+#### 7. Configuration pour la production
 
 Pour la production, ajustez les variables d'environnement :
 
 ```bash
 SENTRY_ENVIRONMENT=production
 SENTRY_LOG_LEVEL=WARNING
-SENTRY_EVENT_LEVEL=ERROR
+SENTRY_EVENT_LEVEL=WARNING
 SENTRY_TRACES_SAMPLE_RATE=0.05
 ```
 
