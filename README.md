@@ -8,6 +8,7 @@ Site web d'Orange County Lettings - Application Django refactorisée avec survei
 
 - **Architecture modulaire** : Applications Django séparées (lettings, profiles)
 - **Surveillance des erreurs** : Intégration Sentry complète avec logging avancé
+- **Conteneurisation Docker** : Images multi-architecture disponibles sur Docker Hub
 - **Gestion des profils** : Système de profils utilisateurs avec favoris
 - **Gestion des locations** : Système de gestion des biens immobiliers
 - **Interface d'administration** : Panel d'administration Django complet
@@ -137,6 +138,101 @@ Utilisation de PowerShell, comme ci-dessus sauf :
 
 - Pour activer l'environnement virtuel, `.\venv\Scripts\Activate.ps1` 
 - Remplacer `which <my-command>` par `(Get-Command <my-command>).Path`
+
+## Utilisation avec Docker
+
+### Déploiement rapide depuis Docker Hub
+
+L'application est disponible en image Docker pré-construite sur Docker Hub avec support multi-architecture.
+
+#### Pull et Run universel (toutes plateformes)
+
+```bash
+# Pull de l'image (architecture automatique)
+docker pull francoiskrukly/oc-lettings-site:latest
+
+# Run de l'application sur port 8000
+docker run -p 8000:8000 --rm francoiskrukly/oc-lettings-site:latest
+```
+
+#### Run avec configuration complète
+
+```bash
+docker run -p 8000:8000 \
+  -e DEBUG=False \
+  -e SECRET_KEY=your-secret-key \
+  -e ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 \
+  -e SENTRY_DSN=your-sentry-dsn \
+  --name oc-lettings \
+  francoiskrukly/oc-lettings-site:latest
+```
+
+#### Accès à l'application
+
+Une fois le conteneur lancé :
+- **Application** : http://localhost:8000
+- **Admin Django** : http://localhost:8000/admin/
+  - Username: `admin`
+  - Password: `admin123`
+
+### Build local avec Docker
+
+#### Build de l'image locale
+
+```bash
+# Build depuis le code source
+docker build -t oc-lettings-local .
+
+# Run de l'image locale
+docker run -p 8000:8000 -e DEBUG=False oc-lettings-local
+```
+
+#### Build multi-architecture (avancé)
+
+```bash
+# Setup buildx pour multi-architecture
+docker buildx create --use
+
+# Build pour plusieurs plateformes
+docker buildx build --platform linux/amd64,linux/arm64 -t oc-lettings-multi .
+```
+
+### Compatibilité Docker
+
+| Plateforme | Architecture | Commande |
+|------------|--------------|----------|
+| **Mac Intel** | `linux/amd64` | `docker run -p 8000:8000 francoiskrukly/oc-lettings-site` |
+| **Mac Apple Silicon** | `linux/arm64` | `docker run -p 8000:8000 francoiskrukly/oc-lettings-site` |
+| **Windows** | `linux/amd64` | `docker run -p 8000:8000 francoiskrukly/oc-lettings-site` |
+| **Linux** | `linux/amd64` | `docker run -p 8000:8000 francoiskrukly/oc-lettings-site` |
+
+### Résolution de problèmes Docker
+
+#### Erreur "no matching manifest" (Mac Apple Silicon)
+
+Si vous rencontrez cette erreur, forcez l'architecture :
+
+```bash
+# Pull avec architecture spécifique
+docker pull --platform linux/amd64 francoiskrukly/oc-lettings-site:latest
+
+# Run avec émulation
+docker run --platform linux/amd64 -p 8000:8000 \
+  -e DEBUG=False francoiskrukly/oc-lettings-site:latest
+```
+
+#### Nettoyage Docker
+
+```bash
+# Nettoyer les images inutilisées
+docker system prune -a
+
+# Supprimer le conteneur
+docker rm -f oc-lettings
+
+# Supprimer l'image locale
+docker rmi oc-lettings-local
+```
 
 ## Architecture technique
 
