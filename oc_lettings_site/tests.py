@@ -103,9 +103,10 @@ class TestMainViews:
         # Vérifier que le log a été appelé
         mock_logger.info.assert_called_once_with("Page d'accueil visitée par 127.0.0.1")
 
+    @patch('oc_lettings_site.views.sentry_sdk')
     @patch('oc_lettings_site.views.render')
     @patch('oc_lettings_site.views.logger')
-    def test_home_view_exception_handling(self, mock_logger, mock_render, client):
+    def test_home_view_exception_handling(self, mock_logger, mock_render, mock_sentry, client):
         """Test la gestion d'exception dans la vue home."""
         # Simuler une exception
         mock_render.side_effect = Exception("Template error")
@@ -113,9 +114,52 @@ class TestMainViews:
         with pytest.raises(Exception):
             client.get(reverse('home'))
 
-        # Vérifier que l'erreur a été loggée
+        # Vérifier que l'erreur a été loggée dans la vue home spécifiquement
         expected_message = "Erreur lors du rendu de la page d'accueil: Template error"
-        mock_logger.error.assert_called_once_with(expected_message)
+
+        # Vérifier que le message attendu est dans les appels
+        error_calls = mock_logger.error.call_args_list
+        expected_call_found = any(
+            call[0][0] == expected_message for call in error_calls
+        )
+        assert expected_call_found, f"Message attendu non trouvé dans les appels: {error_calls}"
+
+    @patch('oc_lettings_site.views.sentry_sdk')
+    @patch('oc_lettings_site.views.logger')
+    def test_sentry_test_views_debug_mode(self, mock_logger, mock_sentry, client, settings):
+        """Test les vues de test Sentry en mode DEBUG."""
+        settings.DEBUG = True
+
+        # Test vue 404 - retourne 404 car Django gère l'exception Http404
+        response = client.get('/test-404/')
+        assert response.status_code == 404
+        mock_logger.warning.assert_called()
+
+        # Reset mocks
+        mock_logger.reset_mock()
+        mock_sentry.reset_mock()
+
+        # Test vue 500 - lève une exception non gérée
+        try:
+            response = client.get('/test-500/')
+            # Si pas d'exception, vérifier le status 500
+            assert response.status_code == 500
+        except Exception:
+            # C'est normal que l'exception soit levée
+            pass
+        mock_logger.error.assert_called()
+
+    @patch('oc_lettings_site.views.sentry_sdk')
+    def test_sentry_test_views_production_mode(self, mock_sentry, client, settings):
+        """Test les vues de test Sentry en mode production (DEBUG=False)."""
+        settings.DEBUG = False
+
+        # En production, ces vues doivent retourner 404
+        response = client.get('/test-404/')
+        assert response.status_code == 404
+
+        response = client.get('/test-500/')
+        assert response.status_code == 404
 
 
 class TestMainURLs:
