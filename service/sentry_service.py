@@ -106,7 +106,7 @@ def configure_sentry():
 
         # Envoi des informations personnelles (activé par défaut selon Sentry)
         send_default_pii=True,
-        
+
         # Capturer toutes les erreurs HTTP (y compris 404)
         capture_unhandled_promise_rejections=True,
 
@@ -115,7 +115,7 @@ def configure_sentry():
 
         # Version de l'application
         release=os.getenv('SENTRY_RELEASE', 'unknown'),
-        
+
         # Fonction pour filtrer les événements (optionnel)
         before_send=_filter_sentry_events,
     )
