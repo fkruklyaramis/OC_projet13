@@ -20,6 +20,7 @@ urlpatterns = [
     path('test-sentry/', views.test_sentry_manual, name='test_sentry'),
     # URL de diagnostic Sentry (accessible en production)
     path('sentry-diagnostic/', views.sentry_diagnostic, name='sentry_diagnostic'),
+    path('force-404-test/', views.force_404_test, name='force_404_test'),
 ]
 
 # Configuration des handlers d'erreurs personnalisés avec Sentry

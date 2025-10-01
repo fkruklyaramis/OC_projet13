@@ -69,22 +69,27 @@ def handler404(request, exception):
     """
     try:
         error_message = f"404 - Page non trouvée: {request.path}"
-        logger.warning(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
+        logger.warning(f"HANDLER404 APPELÉ: {error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
+        print(f"HANDLER404 DEBUG: {error_message}")  # Debug pour Render
 
         # Capturer l'événement dans Sentry avec niveau WARNING (seulement si Sentry configuré)
         try:
-            sentry_sdk.capture_message(
-                error_message,
-                level='warning',
-                extra={
-                    'path': request.path,
-                    'method': request.method,
-                    'ip_address': request.META.get('REMOTE_ADDR'),
-                    'user_agent': request.META.get('HTTP_USER_AGENT'),
-                }
-            )
-        except Exception:
+            print(f"HANDLER404: Tentative d'envoi vers Sentry pour {request.path}")  # Debug
+            
+            # Ajouter le contexte avec set_extra et set_tag
+            sentry_sdk.set_extra("path", request.path)
+            sentry_sdk.set_extra("method", request.method)
+            sentry_sdk.set_extra("ip_address", request.META.get('REMOTE_ADDR'))
+            sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
+            sentry_sdk.set_tag("handler", "custom_404_handler")
+            sentry_sdk.set_tag("error_type", "404")
+            
+            sentry_sdk.capture_message(error_message, level='warning')
+            print("HANDLER404: Message envoyé vers Sentry avec succès")  # Debug
+        except Exception as e:
             # Si Sentry échoue, continuer sans interrompre le handler
+            print(f"HANDLER404: Erreur Sentry: {e}")  # Debug
+            logger.error(f"Erreur lors de l'envoi Sentry dans handler404: {e}")
             pass
 
         return render(request, '404.html', status=404)
@@ -114,16 +119,15 @@ def handler500(request):
 
         # Capturer l'événement dans Sentry avec niveau ERROR (seulement si Sentry configuré)
         try:
-            sentry_sdk.capture_message(
-                error_message,
-                level='error',
-                extra={
-                    'path': request.path,
-                    'method': request.method,
-                    'ip_address': request.META.get('REMOTE_ADDR'),
-                    'user_agent': request.META.get('HTTP_USER_AGENT'),
-                }
-            )
+            # Ajouter le contexte avec set_extra et set_tag
+            sentry_sdk.set_extra("path", request.path)
+            sentry_sdk.set_extra("method", request.method)
+            sentry_sdk.set_extra("ip_address", request.META.get('REMOTE_ADDR'))
+            sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
+            sentry_sdk.set_tag("handler", "custom_500_handler")
+            sentry_sdk.set_tag("error_type", "500")
+            
+            sentry_sdk.capture_message(error_message, level='error')
         except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
             pass
@@ -269,17 +273,27 @@ def test_sentry_manual(request):
     """, content_type='text/html')
 
 
+def force_404_test(request):
+    """
+    Vue pour forcer une erreur 404 qui passera par notre handler personnalisé.
+    
+    Cette vue lève toujours une Http404 pour tester le handler404.
+    """
+    from django.http import Http404
+    
+    # Forcer une vraie erreur 404
+    raise Http404("Test 404 forcé - doit passer par handler404")
+
+
 def sentry_diagnostic(request):
     """
     Vue de diagnostic pour vérifier la configuration Sentry en production.
-
+    
     Accessible en production pour diagnostiquer les problèmes de configuration.
     """
     import os
     from django.http import HttpResponse
-    from django.conf import settings
-
-    # Informations de diagnostic
+    from django.conf import settings    # Informations de diagnostic
     info = []
     info.append(f"<strong>DEBUG:</strong> {settings.DEBUG}")
 
@@ -327,11 +341,14 @@ def sentry_diagnostic(request):
                 <p>{html_info}</p>
             </div>
             <hr>
-            <h2>Instructions pour tester les 404 :</h2>
+            <h2>Tests pour vérifier Sentry :</h2>
             <ol>
-                <li>Allez sur une page inexistante :
+                <li><strong>Test forcé 404 :</strong>
+                    <a href="/force-404-test/" target="_blank">/force-404-test/</a>
+                    <em>(garanti de déclencher handler404)</em></li>
+                <li>Page inexistante :
                     <a href="/page-inexistante/" target="_blank">/page-inexistante/</a></li>
-                <li>Testez un letting inexistant :
+                <li>Letting inexistant :
                     <a href="/lettings/99999/" target="_blank">/lettings/99999/</a></li>
                 <li>Vérifiez votre dashboard Sentry dans 2-3 minutes</li>
             </ol>
