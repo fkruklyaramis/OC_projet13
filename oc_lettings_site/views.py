@@ -272,29 +272,29 @@ def test_sentry_manual(request):
 def sentry_diagnostic(request):
     """
     Vue de diagnostic pour vérifier la configuration Sentry en production.
-    
+
     Accessible en production pour diagnostiquer les problèmes de configuration.
     """
     import os
     from django.http import HttpResponse
     from django.conf import settings
-    
+
     # Informations de diagnostic
     info = []
     info.append(f"<strong>DEBUG:</strong> {settings.DEBUG}")
-    
+
     dsn = os.getenv('SENTRY_DSN')
     info.append(f"<strong>SENTRY_DSN configuré:</strong> {bool(dsn)}")
-    
+
     if dsn:
         info.append(f"<strong>DSN (50 premiers chars):</strong> {dsn[:50]}...")
     else:
         info.append("❌ <strong>SENTRY_DSN</strong> non définie")
-    
+
     info.append(f"<strong>SENTRY_ENVIRONMENT:</strong> {os.getenv('SENTRY_ENVIRONMENT', 'Non défini')}")
     info.append(f"<strong>SENTRY_EVENT_LEVEL:</strong> {os.getenv('SENTRY_EVENT_LEVEL', 'Non défini')}")
     info.append(f"<strong>SENTRY_LOG_LEVEL:</strong> {os.getenv('SENTRY_LOG_LEVEL', 'Non défini')}")
-    
+
     # Test d'envoi Sentry
     test_result = "❌ Pas de test"
     if dsn:
@@ -303,11 +303,11 @@ def sentry_diagnostic(request):
             test_result = "✅ Message WARNING envoyé vers Sentry"
         except Exception as e:
             test_result = f"❌ Erreur lors de l'envoi: {e}"
-    
+
     info.append(f"<strong>Test Sentry:</strong> {test_result}")
-    
+
     html_info = "<br>".join(info)
-    
+
     return HttpResponse(f"""
     <!DOCTYPE html>
     <html>
