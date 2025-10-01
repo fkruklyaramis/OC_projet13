@@ -69,27 +69,20 @@ def handler404(request, exception):
     """
     try:
         error_message = f"404 - Page non trouvée: {request.path}"
-        logger.warning(f"HANDLER404 APPELÉ: {error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
-        print(f"HANDLER404 DEBUG: {error_message}")  # Debug pour Render
+        logger.warning(f"{error_message} - IP: {request.META.get('REMOTE_ADDR', 'inconnue')}")
 
         # Capturer l'événement dans Sentry avec niveau WARNING (seulement si Sentry configuré)
         try:
-            print(f"HANDLER404: Tentative d'envoi vers Sentry pour {request.path}")  # Debug
-
-            # Ajouter le contexte avec set_extra et set_tag
             sentry_sdk.set_extra("path", request.path)
             sentry_sdk.set_extra("method", request.method)
             sentry_sdk.set_extra("ip_address", request.META.get('REMOTE_ADDR'))
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_404_handler")
             sentry_sdk.set_tag("error_type", "404")
-
+            
             sentry_sdk.capture_message(error_message, level='warning')
-            print("HANDLER404: Message envoyé vers Sentry avec succès")  # Debug
-        except Exception as e:
+        except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
-            print(f"HANDLER404: Erreur Sentry: {e}")  # Debug
-            logger.error(f"Erreur lors de l'envoi Sentry dans handler404: {e}")
             pass
 
         return render(request, '404.html', status=404)
@@ -119,14 +112,13 @@ def handler500(request):
 
         # Capturer l'événement dans Sentry avec niveau ERROR (seulement si Sentry configuré)
         try:
-            # Ajouter le contexte avec set_extra et set_tag
             sentry_sdk.set_extra("path", request.path)
             sentry_sdk.set_extra("method", request.method)
             sentry_sdk.set_extra("ip_address", request.META.get('REMOTE_ADDR'))
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_500_handler")
             sentry_sdk.set_tag("error_type", "500")
-
+            
             sentry_sdk.capture_message(error_message, level='error')
         except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
@@ -270,158 +262,4 @@ def test_sentry_manual(request):
     <p><em>Vérifiez votre dashboard Sentry dans quelques minutes</em></p>
     <hr>
     <a href="/">← Retour accueil</a>
-    """, content_type='text/html')
-
-
-def force_404_test(request):
-    """
-    Vue pour forcer une erreur 404 qui passera par notre handler personnalisé.
-
-    Cette vue lève toujours une Http404 pour tester le handler404.
-    """
-    from django.http import Http404
-
-    # Forcer une vraie erreur 404
-    raise Http404("Test 404 forcé - doit passer par handler404")
-
-
-def render_debug(request):
-    """
-    Vue de debug spécifique pour diagnostiquer les problèmes sur Render.
-    """
-    import os
-    from django.http import HttpResponse
-    from django.conf import settings
-
-    logs = []
-
-    # Test de la configuration
-    logs.append("=== CONFIGURATION ===")
-    logs.append(f"DEBUG: {settings.DEBUG}")
-    logs.append(f"SENTRY_DSN présent: {bool(os.getenv('SENTRY_DSN'))}")
-    logs.append(f"SENTRY_EVENT_LEVEL: {os.getenv('SENTRY_EVENT_LEVEL')}")
-
-    # Test de Sentry avec logs détaillés
-    logs.append("=== TEST SENTRY CAPTURE_MESSAGE ===")
-    try:
-        sentry_sdk.capture_message("Test depuis render-debug", level='warning')
-        logs.append("✅ capture_message réussi")
-    except Exception as e:
-        logs.append(f"❌ capture_message échoué: {e}")
-
-    # Test de la méthode du handler404
-    logs.append("=== TEST MÉTHODE HANDLER404 ===")
-    try:
-        sentry_sdk.set_extra("test_path", "/render-debug/")
-        sentry_sdk.set_extra("test_method", "GET")
-        sentry_sdk.set_tag("test_source", "render_debug")
-        sentry_sdk.capture_message("Test méthode handler404 depuis render-debug", level='warning')
-        logs.append("✅ Méthode handler404 réussie")
-    except Exception as e:
-        logs.append(f"❌ Méthode handler404 échouée: {e}")
-
-    # Test d'accessibilité du handler404
-    logs.append("=== TEST HANDLER404 ACCESSIBLE ===")
-    try:
-        # Vérifier que le handler est bien importable
-        import importlib
-        handler_module = importlib.import_module('oc_lettings_site.views')
-        handler_func = getattr(handler_module, 'handler404', None)
-        if handler_func and callable(handler_func):
-            logs.append("✅ Handler404 accessible et callable")
-        else:
-            logs.append("❌ Handler404 non trouvé ou non callable")
-    except Exception as e:
-        logs.append(f"❌ Problème avec handler404: {e}")
-
-    # Format final
-    html_logs = "<br>".join(logs)
-
-    return HttpResponse(f"""
-    <h1>🔧 Debug Render</h1>
-    <pre style="background:#f5f5f5; padding:20px; white-space:pre-wrap;">
-{html_logs}
-    </pre>
-    <hr>
-    <h3>Test manuel des URLs:</h3>
-    <ul>
-        <li><a href="/force-404-test/" target="_blank">Test 404 forcé</a></li>
-        <li><a href="/page-totalement-inexistante/" target="_blank">Page inexistante</a></li>
-    </ul>
-    <p>Après avoir cliqué ces liens, vérifiez Sentry dans 2 minutes.</p>
-    """, content_type='text/html')
-
-
-def sentry_diagnostic(request):
-    """
-    Vue de diagnostic pour vérifier la configuration Sentry en production.
-
-    Accessible en production pour diagnostiquer les problèmes de configuration.
-    """
-    import os
-    from django.http import HttpResponse
-    from django.conf import settings    # Informations de diagnostic
-    info = []
-    info.append(f"<strong>DEBUG:</strong> {settings.DEBUG}")
-
-    dsn = os.getenv('SENTRY_DSN')
-    info.append(f"<strong>SENTRY_DSN configuré:</strong> {bool(dsn)}")
-
-    if dsn:
-        info.append(f"<strong>DSN (50 premiers chars):</strong> {dsn[:50]}...")
-    else:
-        info.append("❌ <strong>SENTRY_DSN</strong> non définie")
-
-    info.append(f"<strong>SENTRY_ENVIRONMENT:</strong> {os.getenv('SENTRY_ENVIRONMENT', 'Non défini')}")
-    info.append(f"<strong>SENTRY_EVENT_LEVEL:</strong> {os.getenv('SENTRY_EVENT_LEVEL', 'Non défini')}")
-    info.append(f"<strong>SENTRY_LOG_LEVEL:</strong> {os.getenv('SENTRY_LOG_LEVEL', 'Non défini')}")
-
-    # Test d'envoi Sentry
-    test_result = "❌ Pas de test"
-    if dsn:
-        try:
-            sentry_sdk.capture_message("🔍 Test diagnostic Sentry depuis production", level='warning')
-            test_result = "✅ Message WARNING envoyé vers Sentry"
-        except Exception as e:
-            test_result = f"❌ Erreur lors de l'envoi: {e}"
-
-    info.append(f"<strong>Test Sentry:</strong> {test_result}")
-
-    html_info = "<br>".join(info)
-
-    return HttpResponse(f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Diagnostic Sentry</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; }}
-            .container {{ max-width: 800px; }}
-            .info {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🔍 Diagnostic Sentry</h1>
-            <div class="info">
-                <h2>Configuration actuelle:</h2>
-                <p>{html_info}</p>
-            </div>
-            <hr>
-            <h2>Tests pour vérifier Sentry :</h2>
-            <ol>
-                <li><strong>Test forcé 404 :</strong>
-                    <a href="/force-404-test/" target="_blank">/force-404-test/</a>
-                    <em>(garanti de déclencher handler404)</em></li>
-                <li>Page inexistante :
-                    <a href="/page-inexistante/" target="_blank">/page-inexistante/</a></li>
-                <li>Letting inexistant :
-                    <a href="/lettings/99999/" target="_blank">/lettings/99999/</a></li>
-                <li>Vérifiez votre dashboard Sentry dans 2-3 minutes</li>
-            </ol>
-            <p><em>Cette page est accessible en production pour diagnostic</em></p>
-            <a href="/">← Retour accueil</a>
-        </div>
-    </body>
-    </html>
     """, content_type='text/html')
