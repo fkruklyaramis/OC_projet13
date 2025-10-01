@@ -213,6 +213,32 @@ class TestMainViews:
         # Vérifier que les erreurs sont gérées gracieusement
         assert 'Erreur WARNING:' in content or 'Erreur ERROR:' in content
 
+    def test_force_404_test_view(self, client):
+        """Test de la vue force_404_test qui doit générer une erreur 404."""
+        response = client.get('/force-404-test/')
+        assert response.status_code == 404
+
+    @patch.dict('os.environ', {'SENTRY_DSN': 'test-dsn'})
+    def test_render_debug_view(self, client, settings):
+        """Test de la vue render_debug pour diagnostic."""
+        response = client.get('/render-debug/')
+        assert response.status_code == 200
+        
+        content = response.content.decode()
+        assert 'Debug Render' in content
+        assert 'CONFIGURATION' in content
+        assert 'TEST SENTRY CAPTURE_MESSAGE' in content
+
+    @patch.dict('os.environ', {'SENTRY_DSN': 'test-dsn'})
+    def test_sentry_diagnostic_view(self, client, settings):
+        """Test de la vue sentry_diagnostic."""
+        response = client.get('/sentry-diagnostic/')
+        assert response.status_code == 200
+        
+        content = response.content.decode()
+        assert 'Diagnostic Sentry' in content
+        assert 'SENTRY_DSN configuré:</strong> True' in content
+
 
 class TestMainURLs:
     """Tests pour les URLs principales de l'application."""
