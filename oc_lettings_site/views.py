@@ -267,3 +267,77 @@ def test_sentry_manual(request):
     <hr>
     <a href="/">← Retour accueil</a>
     """, content_type='text/html')
+
+
+def sentry_diagnostic(request):
+    """
+    Vue de diagnostic pour vérifier la configuration Sentry en production.
+    
+    Accessible en production pour diagnostiquer les problèmes de configuration.
+    """
+    import os
+    from django.http import HttpResponse
+    from django.conf import settings
+    
+    # Informations de diagnostic
+    info = []
+    info.append(f"<strong>DEBUG:</strong> {settings.DEBUG}")
+    
+    dsn = os.getenv('SENTRY_DSN')
+    info.append(f"<strong>SENTRY_DSN configuré:</strong> {bool(dsn)}")
+    
+    if dsn:
+        info.append(f"<strong>DSN (50 premiers chars):</strong> {dsn[:50]}...")
+    else:
+        info.append("❌ <strong>SENTRY_DSN</strong> non définie")
+    
+    info.append(f"<strong>SENTRY_ENVIRONMENT:</strong> {os.getenv('SENTRY_ENVIRONMENT', 'Non défini')}")
+    info.append(f"<strong>SENTRY_EVENT_LEVEL:</strong> {os.getenv('SENTRY_EVENT_LEVEL', 'Non défini')}")
+    info.append(f"<strong>SENTRY_LOG_LEVEL:</strong> {os.getenv('SENTRY_LOG_LEVEL', 'Non défini')}")
+    
+    # Test d'envoi Sentry
+    test_result = "❌ Pas de test"
+    if dsn:
+        try:
+            sentry_sdk.capture_message("🔍 Test diagnostic Sentry depuis production", level='warning')
+            test_result = "✅ Message WARNING envoyé vers Sentry"
+        except Exception as e:
+            test_result = f"❌ Erreur lors de l'envoi: {e}"
+    
+    info.append(f"<strong>Test Sentry:</strong> {test_result}")
+    
+    html_info = "<br>".join(info)
+    
+    return HttpResponse(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Diagnostic Sentry</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; }}
+            .container {{ max-width: 800px; }}
+            .info {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Diagnostic Sentry</h1>
+            <div class="info">
+                <h2>Configuration actuelle:</h2>
+                <p>{html_info}</p>
+            </div>
+            <hr>
+            <h2>Instructions pour tester les 404 :</h2>
+            <ol>
+                <li>Allez sur une page inexistante :
+                    <a href="/page-inexistante/" target="_blank">/page-inexistante/</a></li>
+                <li>Testez un letting inexistant :
+                    <a href="/lettings/99999/" target="_blank">/lettings/99999/</a></li>
+                <li>Vérifiez votre dashboard Sentry dans 2-3 minutes</li>
+            </ol>
+            <p><em>Cette page est accessible en production pour diagnostic</em></p>
+            <a href="/">← Retour accueil</a>
+        </div>
+    </body>
+    </html>
+    """, content_type='text/html')
