@@ -223,7 +223,7 @@ class TestMainViews:
         """Test de la vue render_debug pour diagnostic."""
         response = client.get('/render-debug/')
         assert response.status_code == 200
-        
+
         content = response.content.decode()
         assert 'Debug Render' in content
         assert 'CONFIGURATION' in content
@@ -234,7 +234,7 @@ class TestMainViews:
         """Test de la vue sentry_diagnostic."""
         response = client.get('/sentry-diagnostic/')
         assert response.status_code == 200
-        
+
         content = response.content.decode()
         assert 'Diagnostic Sentry' in content
         assert 'SENTRY_DSN configuré:</strong> True' in content
