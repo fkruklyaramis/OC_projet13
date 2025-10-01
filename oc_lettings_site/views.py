@@ -79,7 +79,7 @@ def handler404(request, exception):
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_404_handler")
             sentry_sdk.set_tag("error_type", "404")
-            
+
             sentry_sdk.capture_message(error_message, level='warning')
         except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
@@ -118,7 +118,7 @@ def handler500(request):
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_500_handler")
             sentry_sdk.set_tag("error_type", "500")
-            
+
             sentry_sdk.capture_message(error_message, level='error')
         except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
