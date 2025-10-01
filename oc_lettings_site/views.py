@@ -285,6 +285,73 @@ def force_404_test(request):
     raise Http404("Test 404 forcé - doit passer par handler404")
 
 
+def render_debug(request):
+    """
+    Vue de debug spécifique pour diagnostiquer les problèmes sur Render.
+    """
+    import os
+    from django.http import HttpResponse
+    from django.conf import settings
+
+    logs = []
+
+    # Test de la configuration
+    logs.append("=== CONFIGURATION ===")
+    logs.append(f"DEBUG: {settings.DEBUG}")
+    logs.append(f"SENTRY_DSN présent: {bool(os.getenv('SENTRY_DSN'))}")
+    logs.append(f"SENTRY_EVENT_LEVEL: {os.getenv('SENTRY_EVENT_LEVEL')}")
+
+    # Test de Sentry avec logs détaillés
+    logs.append("=== TEST SENTRY CAPTURE_MESSAGE ===")
+    try:
+        sentry_sdk.capture_message("Test depuis render-debug", level='warning')
+        logs.append("✅ capture_message réussi")
+    except Exception as e:
+        logs.append(f"❌ capture_message échoué: {e}")
+
+    # Test de la méthode du handler404
+    logs.append("=== TEST MÉTHODE HANDLER404 ===")
+    try:
+        sentry_sdk.set_extra("test_path", "/render-debug/")
+        sentry_sdk.set_extra("test_method", "GET")
+        sentry_sdk.set_tag("test_source", "render_debug")
+        sentry_sdk.capture_message("Test méthode handler404 depuis render-debug", level='warning')
+        logs.append("✅ Méthode handler404 réussie")
+    except Exception as e:
+        logs.append(f"❌ Méthode handler404 échouée: {e}")
+
+    # Test d'accessibilité du handler404
+    logs.append("=== TEST HANDLER404 ACCESSIBLE ===")
+    try:
+        # Vérifier que le handler est bien importable
+        import importlib
+        handler_module = importlib.import_module('oc_lettings_site.views')
+        handler_func = getattr(handler_module, 'handler404', None)
+        if handler_func and callable(handler_func):
+            logs.append("✅ Handler404 accessible et callable")
+        else:
+            logs.append("❌ Handler404 non trouvé ou non callable")
+    except Exception as e:
+        logs.append(f"❌ Problème avec handler404: {e}")
+
+    # Format final
+    html_logs = "<br>".join(logs)
+
+    return HttpResponse(f"""
+    <h1>🔧 Debug Render</h1>
+    <pre style="background:#f5f5f5; padding:20px; white-space:pre-wrap;">
+{html_logs}
+    </pre>
+    <hr>
+    <h3>Test manuel des URLs:</h3>
+    <ul>
+        <li><a href="/force-404-test/" target="_blank">Test 404 forcé</a></li>
+        <li><a href="/page-totalement-inexistante/" target="_blank">Page inexistante</a></li>
+    </ul>
+    <p>Après avoir cliqué ces liens, vérifiez Sentry dans 2 minutes.</p>
+    """, content_type='text/html')
+
+
 def sentry_diagnostic(request):
     """
     Vue de diagnostic pour vérifier la configuration Sentry en production.
