@@ -5,6 +5,17 @@ from service.sentry_service import configure_sentry
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Chargement du fichier .env pour les variables d'environnement
+env_file = BASE_DIR / '.env'
+if env_file.exists():
+    print(f"Chargement du fichier .env depuis {env_file}")
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key, value)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
