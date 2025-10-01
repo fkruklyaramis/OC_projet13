@@ -75,7 +75,7 @@ def handler404(request, exception):
         # Capturer l'événement dans Sentry avec niveau WARNING (seulement si Sentry configuré)
         try:
             print(f"HANDLER404: Tentative d'envoi vers Sentry pour {request.path}")  # Debug
-            
+
             # Ajouter le contexte avec set_extra et set_tag
             sentry_sdk.set_extra("path", request.path)
             sentry_sdk.set_extra("method", request.method)
@@ -83,7 +83,7 @@ def handler404(request, exception):
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_404_handler")
             sentry_sdk.set_tag("error_type", "404")
-            
+
             sentry_sdk.capture_message(error_message, level='warning')
             print("HANDLER404: Message envoyé vers Sentry avec succès")  # Debug
         except Exception as e:
@@ -126,7 +126,7 @@ def handler500(request):
             sentry_sdk.set_extra("user_agent", request.META.get('HTTP_USER_AGENT'))
             sentry_sdk.set_tag("handler", "custom_500_handler")
             sentry_sdk.set_tag("error_type", "500")
-            
+
             sentry_sdk.capture_message(error_message, level='error')
         except Exception:
             # Si Sentry échoue, continuer sans interrompre le handler
@@ -276,11 +276,11 @@ def test_sentry_manual(request):
 def force_404_test(request):
     """
     Vue pour forcer une erreur 404 qui passera par notre handler personnalisé.
-    
+
     Cette vue lève toujours une Http404 pour tester le handler404.
     """
     from django.http import Http404
-    
+
     # Forcer une vraie erreur 404
     raise Http404("Test 404 forcé - doit passer par handler404")
 
@@ -288,7 +288,7 @@ def force_404_test(request):
 def sentry_diagnostic(request):
     """
     Vue de diagnostic pour vérifier la configuration Sentry en production.
-    
+
     Accessible en production pour diagnostiquer les problèmes de configuration.
     """
     import os
