@@ -37,12 +37,9 @@ def configure_sentry():
     Environment Variables:
         SENTRY_DSN (str): Data Source Name de Sentry (URL de configuration)
                          Si absent ou vide, Sentry est désactivé
-        SENTRY_LOG_LEVEL (str): Niveau minimum pour capturer les logs
-                               Valeurs: DEBUG, INFO, WARNING, ERROR, CRITICAL
-                               Défaut: INFO
         SENTRY_EVENT_LEVEL (str): Niveau minimum pour créer des événements Sentry
                                  Valeurs: WARNING, ERROR, CRITICAL
-                                 Défaut: ERROR
+                                 Défaut: WARNING
         SENTRY_TRACES_SAMPLE_RATE (str): Taux d'échantillonnage des traces (0.0-1.0)
                                         Défaut: 0.1 (10% des transactions)
         SENTRY_ENVIRONMENT (str): Environnement de déploiement
@@ -85,8 +82,8 @@ def configure_sentry():
 
     # Configuration de l'intégration de logging avec Sentry
     sentry_logging = LoggingIntegration(
-        level=os.getenv('SENTRY_LOG_LEVEL', 'INFO'),
-        event_level=os.getenv('SENTRY_EVENT_LEVEL', 'ERROR')
+        level='INFO',  # Capture tous les logs INFO et plus
+        event_level=os.getenv('SENTRY_EVENT_LEVEL', 'WARNING')
     )
 
     # Initialisation de Sentry

@@ -75,7 +75,7 @@ class Command(BaseCommand):
             - Affiche des messages de progression sur stdout
             - Enregistre des logs via le logger
         """
-        self.stdout.write(self.style.SUCCESS('🚀 Démarrage du setup production...'))
+        self.stdout.write(self.style.SUCCESS('Démarrage du setup production...'))
 
         try:
             # Créer le superuser
@@ -84,12 +84,12 @@ class Command(BaseCommand):
             # Créer les données de démonstration
             self._create_demo_data(options.get('force', False))
 
-            self.stdout.write(self.style.SUCCESS('✅ Setup production terminé avec succès !'))
+            self.stdout.write(self.style.SUCCESS('Setup production terminé avec succès !'))
 
         except Exception as e:
             logger.error(f"Erreur lors du setup production: {e}")
             self.stdout.write(
-                self.style.ERROR(f'❌ Erreur lors du setup: {e}')
+                self.style.ERROR(f'Erreur lors du setup: {e}')
             )
             raise
 
@@ -129,7 +129,7 @@ class Command(BaseCommand):
                 return
             else:
                 User.objects.filter(username=username).delete()
-                self.stdout.write(f'🔄 Suppression et recréation du superuser "{username}"')
+                self.stdout.write(f'Suppression et recréation du superuser "{username}"')
 
         # Créer le superuser
         User.objects.create_superuser(
@@ -139,7 +139,7 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(
-            self.style.SUCCESS(f'✅ Superuser créé: {username} / {password}')
+            self.style.SUCCESS(f'Superuser créé: {username} / {password}')
         )
         logger.info(f"Superuser créé: {username}")
 
@@ -193,7 +193,7 @@ class Command(BaseCommand):
             Address.objects.all().delete()
             Profile.objects.all().delete()
             User.objects.filter(is_superuser=False).delete()
-            self.stdout.write('🔄 Suppression des données existantes')
+            self.stdout.write('Suppression des données existantes')
 
         # Créer des utilisateurs normaux
         users_data = [
@@ -214,7 +214,7 @@ class Command(BaseCommand):
             )
             created_users.append(user)
 
-        self.stdout.write(f'✅ {len(created_users)} utilisateurs créés')
+        self.stdout.write(f'{len(created_users)} utilisateurs créés')
 
         # Créer des profils
         profiles_data = [
@@ -229,7 +229,7 @@ class Command(BaseCommand):
             profile = Profile.objects.create(**profile_data)
             created_profiles.append(profile)
 
-        self.stdout.write(f'✅ {len(created_profiles)} profils créés')
+        self.stdout.write(f'{len(created_profiles)} profils créés')
 
         # Créer des adresses et lettings
         lettings_data = [
@@ -267,12 +267,12 @@ class Command(BaseCommand):
             )
             created_lettings.append(letting)
 
-        self.stdout.write(f'✅ {len(created_lettings)} lettings créés')
+        self.stdout.write(f'{len(created_lettings)} lettings créés')
 
         # Résumé
         self.stdout.write(
             self.style.SUCCESS(
-                f'🎉 Données de démonstration créées:\n'
+                f'Données de démonstration créées:\n'
                 f'   - {len(created_users)} utilisateurs\n'
                 f'   - {len(created_profiles)} profils\n'
                 f'   - {len(created_lettings)} lettings'

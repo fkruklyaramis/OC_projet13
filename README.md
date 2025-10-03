@@ -58,18 +58,148 @@ Dans le reste de la documentation sur le développement local, il est supposé q
 - Confirmer que la commande `pip` exécute l'exécutable pip dans l'environnement virtuel, `which pip`
 - Pour désactiver l'environnement, `deactivate`
 
-#### Configuration des variables d'environnement (optionnel)
+## Configuration Sentry - Surveillance des erreurs
 
-Pour activer Sentry (surveillance des erreurs), créez un fichier `.env` :
+### Présentation
+
+L'application intègre **Sentry** pour la surveillance en temps réel des erreurs et du monitoring de performance. Sentry capture automatiquement les erreurs 404/500 et fournit des informations détaillées pour le debugging.
+
+### Configuration des variables d'environnement
+
+Créez un fichier `.env` à la racine du projet avec votre configuration Sentry :
 
 ```bash
-# Configuration Sentry (optionnel)
+# Configuration Sentry
 SENTRY_DSN=https://your-dsn@sentry.io/your-project-id
-SENTRY_ENVIRONMENT=development
-SENTRY_LOG_LEVEL=INFO
-SENTRY_EVENT_LEVEL=ERROR
+SENTRY_ENVIRONMENT=production
+SENTRY_EVENT_LEVEL=WARNING
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_RELEASE=1.0.0
+```
+
+### Explication des paramètres
+
+#### Variables obligatoires
+
+- **`SENTRY_DSN`** : URL de connexion à votre projet Sentry
+  - Obtenue dans votre dashboard Sentry > Settings > Client Keys (DSN)
+  - Sans cette variable, Sentry reste désactivé silencieusement
+
+#### Variable de logging
+
+- **`SENTRY_EVENT_LEVEL`** : Niveau minimum pour créer des événements Sentry
+  - Valeurs possibles : `WARNING`, `ERROR`, `CRITICAL`
+  - Défaut : `WARNING`  
+  - **Fonction** : Détermine quels logs créent des "issues" dans le dashboard Sentry
+  - **Note** : Les logs INFO et plus sont toujours capturés automatiquement
+
+#### Variables de performance
+
+- **`SENTRY_TRACES_SAMPLE_RATE`** : Taux d'échantillonnage des traces de performance
+  - Valeurs : `0.0` (désactivé) à `1.0` (100% des requêtes)
+  - Défaut : `0.1` (10% des requêtes)
+  - **Recommandé** : `0.1` en production pour limiter les coûts
+
+#### Variables d'environnement
+
+- **`SENTRY_ENVIRONMENT`** : Environnement de déploiement
+  - Valeurs typiques : `development`, `staging`, `production`
+  - Défaut : `development`
+  - **Usage** : Filtrage des erreurs par environnement dans Sentry
+
+- **`SENTRY_RELEASE`** : Version de l'application
+  - Format libre (ex: `1.0.0`, `v2.1.3`, `main-abc123`)
+  - **Usage** : Tracking des erreurs par version, comparaison entre releases
+
+### Fonctionnement de SENTRY_EVENT_LEVEL
+
+#### Configuration actuelle
+
+```bash
+SENTRY_EVENT_LEVEL=WARNING # Crée des événements pour logs ≥ WARNING
+```
+
+**Scénario 1** : `logger.info("Utilisateur connecté")`
+- **Capturé** automatiquement par Sentry
+- **Pas d'événement** créé (INFO < WARNING)
+- **Stocké** pour debugging mais invisible dans le dashboard
+
+**Scénario 2** : `logger.warning("Tentative de connexion échouée")`
+- **Capturé** automatiquement par Sentry
+- **Événement créé** (WARNING ≥ WARNING)
+- **Visible** dans le dashboard comme issue à traiter
+
+**Scénario 3** : `logger.error("Erreur de base de données")`
+- **Capturé** automatiquement par Sentry
+- **Événement créé** (ERROR ≥ WARNING)
+- **Priorité élevée** dans le dashboard
+
+### Fonctionnement dans l'application
+
+#### Initialisation automatique
+
+Sentry est configuré automatiquement au démarrage de Django via `service/sentry_service.py` :
+
+```python
+# Dans settings.py, Sentry est initialisé une seule fois
+from service.sentry_service import configure_sentry
+configure_sentry()
+```
+
+#### Capture automatique des erreurs Django
+
+Une fois configuré, Sentry capture automatiquement :
+- **Erreurs 500** : Exceptions non gérées dans les vues
+- **Requêtes lentes** : Basé sur `SENTRY_TRACES_SAMPLE_RATE`
+- **Logs Python** : Via l'intégration logging
+
+#### Capture manuelle dans les handlers d'erreurs
+
+L'application capture manuellement les erreurs 404/500 avec contexte enrichi :
+
+**Handler 404** (`oc_lettings_site/views.py`) :
+```python
+def handler404(request, exception):
+    # Log automatique (WARNING ≥ WARNING → événement créé)
+    logger.warning(f"404 - Page non trouvée: {request.path}")
+    
+    # Capture manuelle avec métadonnées
+    sentry_sdk.set_extra("path", request.path)
+    sentry_sdk.set_extra("ip_address", request.META.get('REMOTE_ADDR'))
+    sentry_sdk.capture_message(error_message, level='warning')
+```
+
+**Handler 500** (`oc_lettings_site/views.py`) :
+```python  
+def handler500(request):
+    # Log automatique (ERROR ≥ WARNING → événement créé)
+    logger.error(f"500 - Erreur serveur interne sur: {request.path}")
+    
+    # Capture manuelle avec priorité élevée
+    sentry_sdk.capture_message(error_message, level='error')
+```
+
+### Recommandations de configuration
+
+#### Environnement de développement
+```bash
+SENTRY_ENVIRONMENT=development
+SENTRY_EVENT_LEVEL=WARNING
+SENTRY_TRACES_SAMPLE_RATE=1.0  # Capture tout pour debugging
+```
+
+#### Environnement de production  
+```bash
+SENTRY_ENVIRONMENT=production
+SENTRY_EVENT_LEVEL=WARNING
+SENTRY_TRACES_SAMPLE_RATE=0.1  # 10% pour limiter les coûts
+```
+
+#### Environnement de staging
+```bash
+SENTRY_ENVIRONMENT=staging
+SENTRY_EVENT_LEVEL=ERROR     # Moins de bruit qu'en dev
+SENTRY_TRACES_SAMPLE_RATE=0.5
 ```
 
 #### Exécuter le site
@@ -163,6 +293,10 @@ docker run -p 8000:8000 \
   -e SECRET_KEY=your-secret-key \
   -e ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 \
   -e SENTRY_DSN=your-sentry-dsn \
+  -e SENTRY_ENVIRONMENT=production \
+  -e SENTRY_EVENT_LEVEL=WARNING \
+  -e SENTRY_TRACES_SAMPLE_RATE=0.1 \
+  -e SENTRY_RELEASE=1.0.0 \
   --name oc-lettings \
   francoiskrukly/oc-lettings-site:latest
 ```
@@ -282,8 +416,7 @@ Créez un fichier `.env` à la racine du projet :
 ```bash
 # Configuration Sentry
 SENTRY_DSN=https://your-actual-dsn@sentry.io/your-project-id
-SENTRY_LOG_LEVEL=INFO
-SENTRY_EVENT_LEVEL=ERROR
+SENTRY_EVENT_LEVEL=WARNING
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_ENVIRONMENT=development
 SENTRY_RELEASE=1.0.0
@@ -294,7 +427,7 @@ SENTRY_RELEASE=1.0.0
 | Variable | Description | Valeurs possibles | Défaut |
 |----------|-------------|-------------------|--------|
 | `SENTRY_DSN` | URL de connexion Sentry | URL complète Sentry | - |
-| `SENTRY_LOG_LEVEL` | Niveau minimum de log | DEBUG, INFO, WARNING, ERROR, CRITICAL | INFO |
+
 | `SENTRY_EVENT_LEVEL` | Niveau pour créer des événements Sentry | WARNING, ERROR, CRITICAL | ERROR |
 | `SENTRY_TRACES_SAMPLE_RATE` | Taux d'échantillonnage des traces | 0.0 à 1.0 | 0.1 |
 | `SENTRY_ENVIRONMENT` | Environnement de déploiement | development, staging, production | development |
@@ -376,7 +509,6 @@ Pour la production, ajustez les variables d'environnement :
 
 ```bash
 SENTRY_ENVIRONMENT=production
-SENTRY_LOG_LEVEL=WARNING
 SENTRY_EVENT_LEVEL=WARNING
 SENTRY_TRACES_SAMPLE_RATE=0.05
 ```
@@ -422,7 +554,7 @@ configure_sentry()  # Activation automatique si DSN configurée
 
 2. **Logs manquants** :
    - Vérifiez les permissions du dossier `logs/`
-   - Contrôlez la configuration `SENTRY_LOG_LEVEL`
+   - Contrôlez la configuration `SENTRY_EVENT_LEVEL`
    - Vérifiez l'espace disque disponible
 
 3. **Performance** :
@@ -456,49 +588,49 @@ flake8
 
 Le projet dispose d'un **pipeline CI/CD complet et entièrement automatisé** avec GitHub Actions qui gère les tests, la conteneurisation Docker, et le déploiement automatique sur Render.
 
-### 🏗️ Architecture du Pipeline Complet
+### Architecture du Pipeline Complet
 
 ```
 Push sur main → Tests & Linting → Build Docker → Push Docker Hub → Déploiement Automatique Render
      ↓              ↓                  ↓                ↓                    ↓
 GitHub Actions   Python 3.9        Docker Build    francoiskrukly/      Application Live
   (deploy.yml)   Coverage >80%    Multi-platform    oc-lettings-site   oc-lettings-siteeur
-                 Flake8 ✅        Cache optimisé         latest         .onrender.com
+                 Flake8 OK        Cache optimisé         latest         .onrender.com
 ```
 
-### 🚀 Configuration et Réalisations
+### Configuration et Réalisations
 
 #### 1. Pipeline GitHub Actions (`/.github/workflows/deploy.yml`)
 
 **Déclencheurs automatiques :**
-- ✅ Push sur branches `main` et `develop`
-- ✅ Pull Requests vers `main`
-- ✅ Déclenchement manuel (`workflow_dispatch`)
+- Push sur branches `main` et `develop`
+- Pull Requests vers `main`
+- Déclenchement manuel (`workflow_dispatch`)
 
 **Job 1: Tests, Linting et Coverage**
-- 🔧 Setup Python 3.9 avec cache pip optimisé
-- 📦 Installation automatique des dépendances
-- 🔍 Linting flake8 avec statistiques complètes
-- ✅ Vérification configuration Django
-- 🧪 Tests unitaires complets (32 tests passés)
-- 📊 **Couverture de code : 90,18%** (seuil requis : 80%)
-- 📋 Génération rapport HTML de couverture
-- 📦 Test collecte fichiers statiques
-- 💬 Commentaires automatiques sur Pull Requests
+- Setup Python 3.9 avec cache pip optimisé
+- Installation automatique des dépendances
+- Linting flake8 avec statistiques complètes
+- Vérification configuration Django
+- Tests unitaires complets (32 tests passés)
+- **Couverture de code : 90,18%** (seuil requis : 80%)
+- Génération rapport HTML de couverture
+- Test collecte fichiers statiques
+- Commentaires automatiques sur Pull Requests
 
 **Job 2: Conteneurisation Docker (seulement sur main)**
-- 🐳 Build Docker multi-architecture (linux/amd64, linux/arm64)
-- 🏷️ Tags automatiques : `latest`, `main-<sha>`, `<branch>`
-- 🚀 Push automatique vers Docker Hub
-- 💾 Cache GitHub Actions optimisé
-- 📋 Métadonnées Git automatiques
+- Build Docker multi-architecture (linux/amd64, linux/arm64)
+- Tags automatiques : `latest`, `main-<sha>`, `<branch>`
+- Push automatique vers Docker Hub
+- Cache GitHub Actions optimisé
+- Métadonnées Git automatiques
 
 **Job 3: Déploiement Automatique Render (nouveau !)**
-- 🎯 Déclenché seulement si tests ET Docker réussissent
-- 🔗 Utilise Render Deploy Hook API
-- ⏱️ Attente et vérification déploiement (10 tentatives max)
-- ✅ Validation accessibilité application
-- 📊 Résumé complet avec URLs et métadonnées
+- Déclenché seulement si tests ET Docker réussissent
+- Utilise Render Deploy Hook API
+- Attente et vérification déploiement (10 tentatives max)
+- Validation accessibilité application
+- Résumé complet avec URLs et métadonnées
 
 #### 2. Docker Hub - Registre d'Images Automatique
 
@@ -510,46 +642,46 @@ GitHub Actions   Python 3.9        Docker Build    francoiskrukly/      Applicat
 - `<branch_name>` : Images par branche pour tests
 
 **Dockerfile optimisé :**
-- 📦 Base : `python:3.9-slim` (sécurisé et léger)
-- 👤 Utilisateur non-root (`appuser`)
-- 🗃️ Cache des dépendances pip
-- 🔧 Migrations automatiques
-- 👑 **Initialisation automatique superadmin** (`admin`/`admin`)
-- 🏠 **Données de démonstration automatiques** (4 locations + profils)
-- 📦 Collecte fichiers statiques
+- Base : `python:3.9-slim` (sécurisé et léger)
+- Utilisateur non-root (`appuser`)
+- Cache des dépendances pip
+- Migrations automatiques
+- **Initialisation automatique superadmin** (`admin`/`admin`)
+- **Données de démonstration automatiques** (4 locations + profils)
+- Collecte fichiers statiques
 
 #### 3. Déploiement Production sur Render
 
 **Application déployée :** https://oc-lettings-siteeur.onrender.com
 
 **Configuration Render :**
-- 🐳 Déploiement depuis Docker Hub (automatique)
-- 🔧 Variables d'environnement de production configurées
-- 📦 WhiteNoise pour fichiers statiques
-- 🗄️ Base de données SQLite persistante
-- 🔄 **Redéploiement automatique** via Deploy Hook
+- Déploiement depuis Docker Hub (automatique)
+- Variables d'environnement de production configurées
+- WhiteNoise pour fichiers statiques
+- Base de données SQLite persistante
+- **Redéploiement automatique** via Deploy Hook
 
 **Fonctionnalités en production :**
-- ✅ Application entièrement fonctionnelle
-- ✅ Fichiers statiques servis correctement (CSS, JS, images)
-- ✅ Interface d'administration accessible
-- ✅ **Superuser créé automatiquement** : `admin` / `admin`
-- ✅ **4 locations de démonstration** avec profils utilisateurs
-- ✅ Surveillance Sentry (optionnelle)
+- Application entièrement fonctionnelle
+- Fichiers statiques servis correctement (CSS, JS, images)
+- Interface d'administration accessible
+- **Superuser créé automatiquement** : `admin` / `admin`
+- **4 locations de démonstration** avec profils utilisateurs
+- Surveillance Sentry (optionnelle)
 
 #### 4. Automatisation Complète - Zéro Configuration Manuelle
 
 **Workflow de développement :**
-1. 👨‍💻 Développeur fait `git push origin main`
+1. Développeur fait `git push origin main`
 2. 🤖 GitHub Actions démarre automatiquement :
    - Tests complets avec couverture >80%
    - Build image Docker optimisée
    - Push vers Docker Hub
    - **Déploiement automatique sur Render**
-3. 🌐 Application mise à jour en production (5-8 minutes)
-4. ✅ Vérification automatique de l'accessibilité
+3. Application mise à jour en production (5-8 minutes)
+4. Vérification automatique de l'accessibilité
 
-### 🔧 Configuration Requise
+### Configuration Requise
 
 #### Secrets GitHub Actions
 Dans `Settings > Secrets and variables > Actions` :
@@ -562,25 +694,29 @@ Dans `Settings > Secrets and variables > Actions` :
 DEBUG=False
 SECRET_KEY=<production-secret-key>
 ALLOWED_HOSTS=oc-lettings-siteeur.onrender.com
-SENTRY_DSN=<optional-sentry-monitoring>
+SENTRY_DSN=<your-production-sentry-dsn>
+SENTRY_ENVIRONMENT=production
+SENTRY_EVENT_LEVEL=WARNING
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_RELEASE=1.0.0
 PORT=10000
 ```
 
-### 📊 Performances et Optimisations
+### Performances et Optimisations
 
 **Temps d'exécution pipeline :**
-- 🧪 Tests + Linting : ~2-3 minutes
-- 🐳 Build + Push Docker : ~4-6 minutes (optimisé avec cache)
-- 🚀 Déploiement Render : ~2-4 minutes
+- Tests + Linting : ~2-3 minutes
+- Build + Push Docker : ~4-6 minutes (optimisé avec cache)
+- Déploiement Render : ~2-4 minutes
 - **Total : 8-13 minutes** pour mise en production complète
 
 **Optimisations implémentées :**
-- 💾 Cache GitHub Actions pour dépendances
-- 🐳 Cache Docker layers
-- 📦 Build optimisé single-platform (linux/amd64 pour Render)
-- ⚡ Suppression tests Docker redondants
+- Cache GitHub Actions pour dépendances
+- Cache Docker layers
+- Build optimisé single-platform (linux/amd64 pour Render)
+- Suppression tests Docker redondants
 
-### 🔍 Monitoring et Qualité
+### Monitoring et Qualité
 
 **Tests automatiques :**
 - 32 tests unitaires (100% de réussite)
@@ -589,36 +725,36 @@ PORT=10000
 - Vérification configuration Django
 
 **Surveillance production :**
-- 🌐 Vérification automatique accessibilité
-- 📊 Health checks intégrés
-- 🔔 Notifications erreurs via GitHub Actions
-- 📋 Logs complets disponibles sur Render
+- Vérification automatique accessibilité
+- Health checks intégrés
+- Notifications erreurs via GitHub Actions
+- Logs complets disponibles sur Render
 
-### 🎯 Résultats de l'Étape 4
+### Résultats de l'Étape 4
 
-#### ✅ Objectifs Atteints
+#### Objectifs Atteints
 
-1. **Pipeline CI/CD complet** ✅
+1. **Pipeline CI/CD complet**
    - Tests automatiques avec couverture >80%
    - Build et déploiement automatisés
    - Workflow GitHub Actions fonctionnel
 
-2. **Conteneurisation Docker** ✅
+2. **Conteneurisation Docker**
    - Dockerfile optimisé pour production
    - Images automatiques sur Docker Hub
    - Configuration sécurisée et performante
 
-3. **Déploiement automatique** ✅
+3. **Déploiement automatique**
    - Application déployée sur Render
    - Redéploiement automatique sur push
    - URLs production fonctionnelles
 
-4. **Base de données et données** ✅
+4. **Base de données et données**
    - Migrations automatiques
    - Superuser créé automatiquement
    - Données de démonstration intégrées
 
-#### 🏆 Bonus Réalisés
+#### Bonus Réalisés
 
 - **Déploiement zéro-touch** : Push → Production en 10 minutes
 - **Initialisation automatique** : Superuser + données de démo
@@ -666,7 +802,7 @@ L'implémentation complète du pipeline CI/CD a nécessité la création et conf
 - **`test-pipeline.sh`** : Script de test local du pipeline
 - **`docker-deploy.sh`** : Script de déploiement Docker (optionnel)
 
-### 🔧 Configuration Secrets et Variables
+### Configuration Secrets et Variables
 
 #### GitHub Repository Secrets (obligatoires)
 ```
@@ -680,7 +816,11 @@ DEBUG=False
 SECRET_KEY=<secure-random-key>
 ALLOWED_HOSTS=oc-lettings-siteeur.onrender.com
 PORT=10000
-SENTRY_DSN=<optional-monitoring>
+SENTRY_DSN=<your-production-sentry-dsn>
+SENTRY_ENVIRONMENT=production
+SENTRY_EVENT_LEVEL=WARNING
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_RELEASE=1.0.0
 ```
 
 - **Application** : https://oc-lettings-siteeur.onrender.com
@@ -689,7 +829,7 @@ SENTRY_DSN=<optional-monitoring>
 - **Repository GitHub** : https://github.com/fkruklyaramis/OC_projet13
 - **GitHub Actions** : https://github.com/fkruklyaramis/OC_projet13/actions
 
-### 🚀 Utilisation du Pipeline
+### Utilisation du Pipeline
 
 #### Test du Pipeline Complet
 ```bash
@@ -727,11 +867,11 @@ docker run -p 8000:8000 \
 
 Le projet dispose d'une **documentation technique complète et professionnelle** hébergée sur Read The Docs, mise à jour automatiquement depuis le repository GitHub.
 
-### 📚 Accès à la documentation
+### Accès à la documentation
 
 **Documentation en ligne :** [OC-Lettings-Site sur Read The Docs](https://oc-lettings-site.readthedocs.io/)
 
-### 📋 Contenu de la documentation
+### Contenu de la documentation
 
 La documentation technique couvre l'ensemble du projet selon les standards professionnels :
 
@@ -781,7 +921,7 @@ La documentation technique couvre l'ensemble du projet selon les standards profe
 - Système de logging multi-niveaux
 - Métriques et surveillance en production
 
-### 🔧 Structure de documentation
+### Structure de documentation
 
 La documentation utilise **Sphinx** avec une configuration optimisée pour Read The Docs :
 
@@ -794,7 +934,7 @@ docs/
 └── .readthedocs.yaml   # Configuration Read The Docs
 ```
 
-### 🚀 Mise à jour automatique
+### Mise à jour automatique
 
 La documentation se met à jour **automatiquement** à chaque modification du repository :
 
@@ -808,17 +948,17 @@ La documentation se met à jour **automatiquement** à chaque modification du re
 - Thème professionnel Read The Docs
 - Support multilingue (français)
 
-### 🎯 Standards respectés
+### Standards respectés
 
 La documentation respecte tous les **critères d'évaluation professionnels** :
 
-✅ **Alignement avec le projet** : Documentation spécifique à OC-Lettings-Site
-✅ **Exhaustivité** : Tous les éléments demandés présents
-✅ **Normes professionnelles** : Format Sphinx, structure claire, navigation intuitive
-✅ **Mise à jour automatique** : Synchronisation Git → Read The Docs
-✅ **Accessibilité** : Documentation publique et facilement consultable
+**Alignement avec le projet** : Documentation spécifique à OC-Lettings-Site
+**Exhaustivité** : Tous les éléments demandés présents
+**Normes professionnelles** : Format Sphinx, structure claire, navigation intuitive
+**Mise à jour automatique** : Synchronisation Git → Read The Docs
+**Accessibilité** : Documentation publique et facilement consultable
 
-### 📖 Consultation de la documentation
+### Consultation de la documentation
 
 **En ligne :** Accès direct via https://oc-lettings-site.readthedocs.io/
 

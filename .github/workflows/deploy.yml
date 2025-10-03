@@ -48,31 +48,31 @@ jobs:
     # 4. Linting avec flake8
     - name: Lint with flake8
       run: |
-        echo "🔍 Vérification du code avec flake8..."
+        echo "Vérification du code avec flake8..."
         flake8 --statistics --show-source
-        echo "✅ Linting terminé avec succès"
+        echo "Linting terminé avec succès"
         
     # 5. Préparation environnement Django
     - name: Prepare Django environment
       run: |
-        echo "📁 Création des dossiers requis..."
+        echo "Création des dossiers requis..."
         mkdir -p logs static staticfiles
-        echo "🔧 Vérification de la configuration Django..."
+        echo "Vérification de la configuration Django..."
         python manage.py check
-        echo "✅ Configuration Django valide"
+        echo "Configuration Django valide"
         
     # 6. Tests unitaires avec couverture
     - name: Run tests with coverage
       run: |
-        echo "🧪 Exécution des tests avec couverture..."
+        echo "Exécution des tests avec couverture..."
         coverage run -m pytest -v
-        echo "📊 Génération du rapport de couverture..."
-        coverage report --show-missing --fail-under=80
-        echo "📋 Génération du rapport HTML..."
+        echo "Génération du rapport de couverture..."
+        coverage report
+        echo "Génération du rapport HTML..."
         coverage html
-        echo "🔍 Vérification des fichiers générés..."
-        ls -la htmlcov/ || echo "❌ Dossier htmlcov/ non trouvé"
-        echo "✅ Tests terminés avec succès"
+        echo "Vérification des fichiers générés..."
+        ls -la htmlcov/ || echo "Dossier htmlcov/ non trouvé"
+        echo "Tests terminés avec succès"
         
     # 7. Upload du rapport de couverture HTML
     - name: Upload coverage report
@@ -86,17 +86,17 @@ jobs:
     # 8. Collecte des fichiers statiques (test production)
     - name: Collect static files
       run: |
-        echo "📦 Test de collecte des fichiers statiques..."
+        echo "Test de collecte des fichiers statiques..."
         python manage.py collectstatic --noinput
-        echo "✅ Fichiers statiques collectés"
+        echo "Fichiers statiques collectés"
         
     # 9. Affichage du résumé
     - name: Display summary
       if: success()
       run: |
-        echo "🎉 Tous les tests sont passés avec succès !"
-        echo "📈 Couverture de code : $(coverage report --precision=1 | tail -1 | awk '{print $4}')"
-        echo "🚀 Prêt pour la conteneurisation et le déploiement"
+        echo "Tous les tests sont passés avec succès !"
+        echo "Couverture de code : $(coverage report --precision=1 | tail -1 | awk '{print $4}')"
+        echo "Prêt pour la conteneurisation et le déploiement"
         
     # 10. Commentaire sur la PR avec les résultats (optionnel)
     - name: Comment PR
@@ -108,7 +108,7 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: '✅ Tests et linting passés avec succès ! La couverture de code est supérieure à 80%.'
+            body: 'Tests et linting passés avec succès ! La couverture de code est supérieure à 80%.'
           })
 
   # Job 2: Build et Push Docker (seulement sur main et si tests réussis)
@@ -172,18 +172,18 @@ jobs:
     # 6. Résumé du build
     - name: Display build summary
       run: |
-        echo "🎉 Image Docker buildée et pushée avec succès !"
-        echo "📦 Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
-        echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
-        echo "📝 SHA: ${{ github.sha }}"
-        echo "🌍 Compatibilité UNIVERSELLE (Performance native partout):"
-        echo "  ✅ Mac Intel (linux/amd64) - PERFORMANCE NATIVE"
-        echo "  ✅ Mac Apple Silicon (linux/arm64) - PERFORMANCE NATIVE"
-        echo "  ✅ Windows Docker Desktop (linux/amd64) - PERFORMANCE NATIVE"
-        echo "  ✅ Linux Intel/AMD (linux/amd64) - PERFORMANCE NATIVE"  
-        echo "  ✅ Linux ARM (linux/arm64) - PERFORMANCE NATIVE"
-        echo "  ✅ Render Production (linux/amd64) - PERFORMANCE NATIVE"
-        echo "⚡ Build optimisé: ~5 minutes avec cache intelligent"
+        echo "Image Docker buildée et pushée avec succès !"
+        echo "Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
+        echo "Tags: ${{ steps.meta.outputs.tags }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "Compatibilité UNIVERSELLE (Performance native partout):"
+        echo "  Mac Intel (linux/amd64) - PERFORMANCE NATIVE"
+        echo "  Mac Apple Silicon (linux/arm64) - PERFORMANCE NATIVE"
+        echo "  Windows Docker Desktop (linux/amd64) - PERFORMANCE NATIVE"
+        echo "  Linux Intel/AMD (linux/amd64) - PERFORMANCE NATIVE"  
+        echo "  Linux ARM (linux/arm64) - PERFORMANCE NATIVE"
+        echo "  Render Production (linux/amd64) - PERFORMANCE NATIVE"
+        echo "Build optimisé: ~5 minutes avec cache intelligent"
 
   # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
   deploy:
@@ -196,19 +196,19 @@ jobs:
     # 1. Déclenchement du déploiement Render
     - name: Deploy to Render
       run: |
-        echo "🚀 Déclenchement du déploiement sur Render..."
+        echo "Déclenchement du déploiement sur Render..."
         response=$(curl -s -w "%{http_code}" -o /tmp/deploy_response.json \
           -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
         
         if [ "$response" = "200" ] || [ "$response" = "201" ]; then
-          echo "✅ Déploiement déclenché avec succès"
-          echo "📋 Réponse Render:"
+          echo "Déploiement déclenché avec succès"
+          echo "Réponse Render:"
           cat /tmp/deploy_response.json
           echo ""
         else
-          echo "❌ Erreur lors du déclenchement du déploiement"
-          echo "📋 Code de réponse HTTP: $response"
-          echo "📋 Réponse:"
+          echo "Erreur lors du déclenchement du déploiement"
+          echo "Code de réponse HTTP: $response"
+          echo "Réponse:"
           cat /tmp/deploy_response.json || echo "Aucune réponse reçue"
           exit 1
         fi
@@ -217,16 +217,16 @@ jobs:
     - name: Wait for deployment
       run: |
         echo "⏳ Attente de la disponibilité du déploiement..."
-        echo "🌐 URL de production: https://oc-lettings-siteeur.onrender.com"
+        echo "URL de production: https://oc-lettings-siteeur.onrender.com"
         
         # Attendre 60 secondes pour laisser le temps au déploiement de commencer
         sleep 60
         
         # Tentatives de vérification (max 5 minutes)
         for i in {1..10}; do
-          echo "🔍 Tentative $i/10 de vérification..."
+          echo "Tentative $i/10 de vérification..."
           if curl -f -s --max-time 10 https://oc-lettings-siteeur.onrender.com/ > /dev/null; then
-            echo "✅ Application déployée et accessible !"
+            echo "Application déployée et accessible !"
             break
           else
             echo "⏳ Application pas encore prête, attente de 30 secondes..."
@@ -234,17 +234,17 @@ jobs:
           fi
           
           if [ $i -eq 10 ]; then
-            echo "⚠️  Application peut encore être en cours de déploiement"
-            echo "🔗 Vérifiez manuellement: https://oc-lettings-siteeur.onrender.com"
+            echo "Application peut encore être en cours de déploiement"
+            echo "Vérifiez manuellement: https://oc-lettings-siteeur.onrender.com"
           fi
         done
     
     # 3. Résumé du déploiement
     - name: Deployment summary
       run: |
-        echo "🎉 Processus de déploiement terminé !"
-        echo "🌐 URL de production: https://oc-lettings-siteeur.onrender.com"
-        echo "🔗 Admin: https://oc-lettings-siteeur.onrender.com/admin/"
-        echo "📊 Logs Render: https://dashboard.render.com"
-        echo "📝 Commit déployé: ${{ github.sha }}"
-        echo "👤 Déployé par: ${{ github.actor }}"
+        echo "Processus de déploiement terminé !"
+        echo "URL de production: https://oc-lettings-siteeur.onrender.com"
+        echo "Admin: https://oc-lettings-siteeur.onrender.com/admin/"
+        echo "Logs Render: https://dashboard.render.com"
+        echo "Commit déployé: ${{ github.sha }}"
+        echo "Déployé par: ${{ github.actor }}"

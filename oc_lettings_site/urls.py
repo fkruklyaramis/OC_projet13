@@ -14,10 +14,6 @@ urlpatterns = [
     path('', views.home, name='home'),  # Page d'accueil
     path('lettings/', include('lettings.urls', namespace='lettings')),
     path('profiles/', include('profiles.urls', namespace='profiles')),
-    # URLs de test Sentry (DEBUG uniquement)
-    path('test-404/', views.test_sentry_404, name='test_404'),
-    path('test-500/', views.test_sentry_500, name='test_500'),
-    path('test-sentry/', views.test_sentry_manual, name='test_sentry'),
 ]
 
 # Configuration des handlers d'erreurs personnalisés avec Sentry
