@@ -342,6 +342,17 @@ docker buildx build --platform linux/amd64,linux/arm64 -t oc-lettings-multi .
 
 ### Résolution de problèmes Docker
 
+#### Erreur "Invalid HTTP_HOST header"
+
+Si vous obtenez l'erreur `Invalid HTTP_HOST header: '0.0.0.0:8000'`, utilisez la variable d'environnement ALLOWED_HOSTS :
+
+```bash
+# Solution recommandée : spécifier ALLOWED_HOSTS
+docker run -p 8000:8000 -e ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 francoiskrukly/oc-lettings-site
+```
+
+Note : Cette configuration est désormais incluse par défaut dans l'application.
+
 #### Erreur "no matching manifest" (Mac Apple Silicon)
 
 Si vous rencontrez cette erreur, forcez l'architecture :
@@ -856,7 +867,7 @@ docker build -t oc-lettings-site:local .
 docker run -p 8000:8000 \
   -e DEBUG=False \
   -e SECRET_KEY=test-key \
-  -e ALLOWED_HOSTS=localhost \
+  -e ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 \
   oc-lettings-site:local
 
 # Accès : http://localhost:8000
