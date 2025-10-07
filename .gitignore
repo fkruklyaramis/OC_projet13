@@ -22,7 +22,7 @@ db.sqlite3
 
 # Ignorer les fichiers de configuration locaux
 *.env
-.env.*
+
 
 # Ignorer les fichiers générés par l'IDE
 .vscode/
