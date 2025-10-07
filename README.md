@@ -285,6 +285,13 @@ docker pull francoiskrukly/oc-lettings-site:latest
 docker run -p 8000:8000 --rm francoiskrukly/oc-lettings-site:latest
 ```
 
+#### Run avec configuration .env (Sentry activé)
+
+```bash
+# Utiliser votre fichier .env local pour activer Sentry
+docker run -p 8000:8000 --env-file .env --rm francoiskrukly/oc-lettings-site:latest
+```
+
 #### Run avec configuration complète
 
 ```bash
