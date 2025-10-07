@@ -314,7 +314,7 @@ Une fois le conteneur lancé :
 - **Application** : http://localhost:8000
 - **Admin Django** : http://localhost:8000/admin/
   - Username: `admin`
-  - Password: `admin123`
+  - Password: `admin`
 
 ### Build local avec Docker
 
