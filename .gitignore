@@ -41,9 +41,8 @@ htmlcov/
 staticfiles/
 media/
 
-# Ignorer les logs et variables d'environnement
-logs/
-*.log
+# Ignorer les fichiers de logs mais garder le dossier logs/
+logs/*.log
 .env
 
 # Ignorer les fichiers générés par Sphinx

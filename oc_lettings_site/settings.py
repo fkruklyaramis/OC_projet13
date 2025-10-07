@@ -137,6 +137,9 @@ PORT = int(os.getenv('PORT', 8000))
 # Configuration Sentry
 configure_sentry()
 
+# Création automatique du dossier logs s'il n'existe pas
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
 
 # Configuration de logging
 LOGGING = {
