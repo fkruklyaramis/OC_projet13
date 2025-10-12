@@ -144,6 +144,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         
     # docker/metadata-action@v5 génère automatiquement tags et labels OCI
+    # OCI = Open Container Initiative (standard unifié pour conteneurs Docker/Podman)
+    # Labels OCI ajoutent métadonnées : org.opencontainers.image.source, .created, .revision
     # type=ref,event=branch crée tag avec nom branche (ex: "main")
     # type=sha,prefix={{branch}}- crée tag avec SHA Git (ex: "main-abc1234")
     # type=raw,value=latest ajoute tag "latest" seulement sur branche par défaut
@@ -214,13 +216,13 @@ jobs:
         
         for i in {1..10}; do
           if curl -f -s --max-time 10 https://oc-lettings-siteeur.onrender.com/ > /dev/null; then
-            echo "✅ Application déployée et accessible"
+            echo "Application déployée et accessible"
             break
           else
             sleep 30
           fi
           
           if [ $i -eq 10 ]; then
-            echo "⚠️ Vérifiez: https://oc-lettings-siteeur.onrender.com"
+            echo "Vérifiez: https://oc-lettings-siteeur.onrender.com"
           fi
         done
