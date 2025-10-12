@@ -1,15 +1,16 @@
-# .github/workflows/tests.yml
+# Pipeline CI/CD automatisé pour OC-Lettings-Site
+# Tests → Build Docker multi-arch → Déploiement Render
 name: CI/CD Pipeline
 
-# Déclenchement du workflow
+# Déclencheurs : push main/develop, PR vers main, manuel
 on:
   push:
-    branches: [ "main", "develop" ]  # Sur push vers main et develop
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]  # Sur PR vers main
-  workflow_dispatch:  # Permet de lancer manuellement
+    branches: [ "main" ]
+  workflow_dispatch:
 
-# Variables d'environnement globales
+# Variables globales réutilisables dans tous les jobs
 env:
   PYTHON_VERSION: '3.9'
   DOCKER_REGISTRY: docker.io
@@ -17,88 +18,66 @@ env:
   IMAGE_NAME: oc-lettings-site
 
 jobs:
+  # JOB 1: Tests, linting et validation de la qualité de code
   test:
     name: Tests, Linting et Coverage
     runs-on: ubuntu-latest
     
-    # Variables d'environnement pour les tests
+    # Configuration Django pour les tests (pas de production)
     env:
       DEBUG: 'False'
       SECRET_KEY: 'test-secret-key-for-ci-cd-only-not-production'
       ALLOWED_HOSTS: 'localhost,127.0.0.1'
     
     steps:
-    # 1. Checkout du code
+    # Récupération du code source depuis le repository
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # 2. Configuration Python
+    # Installation Python avec cache pip pour accélération
     - name: Setup Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'  # Cache des dépendances pip
+        cache: 'pip'
         
-    # 3. Installation des dépendances
+    # Installation de toutes les dépendances du projet
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    # 4. Linting avec flake8
+    # Vérification conformité PEP8 avec statistiques détaillées
     - name: Lint with flake8
-      run: |
-        echo "Vérification du code avec flake8..."
-        flake8 --statistics --show-source
-        echo "Linting terminé avec succès"
+      run: flake8 --statistics --show-source
         
-    # 5. Préparation environnement Django
+    # Création des dossiers requis et validation configuration Django
     - name: Prepare Django environment
       run: |
-        echo "Création des dossiers requis..."
         mkdir -p logs static staticfiles
-        echo "Vérification de la configuration Django..."
         python manage.py check
-        echo "Configuration Django valide"
         
-    # 6. Tests unitaires avec couverture
+    # Exécution des tests avec mesure de couverture de code
     - name: Run tests with coverage
       run: |
-        echo "Exécution des tests avec couverture..."
         coverage run -m pytest -v
-        echo "Génération du rapport de couverture..."
         coverage report
-        echo "Génération du rapport HTML..."
         coverage html
-        echo "Vérification des fichiers générés..."
-        ls -la htmlcov/ || echo "Dossier htmlcov/ non trouvé"
-        echo "Tests terminés avec succès"
         
-    # 7. Upload du rapport de couverture HTML
+    # Sauvegarde du rapport de couverture HTML (téléchargeable 7 jours)
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
-      if: success()  # Upload seulement si les tests réussissent
+      if: success()
       with:
         name: coverage-report-${{ github.run_number }}
         path: htmlcov/
         retention-days: 7
         
-    # 8. Collecte des fichiers statiques (test production)
+    # Test de collecte des fichiers statiques (simulation production)
     - name: Collect static files
-      run: |
-        echo "Test de collecte des fichiers statiques..."
-        python manage.py collectstatic --noinput
-        echo "Fichiers statiques collectés"
+      run: python manage.py collectstatic --noinput
         
-    # 9. Affichage du résumé
-    - name: Display summary
-      if: success()
-      run: |
-        echo "Tous les tests sont passés avec succès !"
-        echo "Couverture de code : $(coverage report --precision=1 | tail -1 | awk '{print $4}')"
-        echo "Prêt pour la conteneurisation et le déploiement"
-        
-    # 10. Commentaire sur la PR avec les résultats (optionnel)
+    # Commentaire automatique sur les Pull Requests avec résultats
     - name: Comment PR
       uses: actions/github-script@v6
       if: github.event_name == 'pull_request'
@@ -111,29 +90,28 @@ jobs:
             body: 'Tests et linting passés avec succès ! La couverture de code est supérieure à 80%.'
           })
 
-  # Job 2: Build et Push Docker (seulement sur main et si tests réussis)
+  # JOB 2: Build Docker multi-architecture et push vers Docker Hub
+  # Exécuté uniquement sur push vers main après succès des tests
   docker:
     name: Build et Push Docker
     runs-on: ubuntu-latest
-    needs: test  # Attend que le job test soit terminé avec succès
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Seulement sur push vers main
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-    # 1. Checkout du code
+    # Récupération du code pour le build Docker
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # 2. Configuration Docker Buildx pour builds multi-architecture RAPIDES
+    # Configuration Docker Buildx pour builds multi-architecture optimisés
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
-        # Optimisation pour builds parallèles rapides
         driver-opts: |
           network=host
-        # Configuration pour performance maximale
         buildkitd-flags: --allow-insecure-entitlement security.insecure
       
-    # 3. Connexion à Docker Hub
+    # Authentification Docker Hub avec token sécurisé
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
@@ -141,7 +119,7 @@ jobs:
         username: ${{ env.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         
-    # 4. Extraction des métadonnées Git pour les tags
+    # Génération automatique des tags Docker à partir des métadonnées Git
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -152,99 +130,57 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
           
-    # 5. Build et Push de l'image Docker (optimisé)
+    # Build et push image Docker multi-architecture avec cache intelligent
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        # Multi-architecture UNIVERSEL : Fonctionne partout nativement
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Cache intelligent pour builds rapides (~5min)
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        # Optimisations pour réduire le temps de build
         build-args: |
           BUILDKIT_INLINE_CACHE=1
-        
-    # 6. Résumé du build
-    - name: Display build summary
-      run: |
-        echo "Image Docker buildée et pushée avec succès !"
-        echo "Repository: ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
-        echo "Tags: ${{ steps.meta.outputs.tags }}"
-        echo "SHA: ${{ github.sha }}"
-        echo "Compatibilité UNIVERSELLE (Performance native partout):"
-        echo "  Mac Intel (linux/amd64) - PERFORMANCE NATIVE"
-        echo "  Mac Apple Silicon (linux/arm64) - PERFORMANCE NATIVE"
-        echo "  Windows Docker Desktop (linux/amd64) - PERFORMANCE NATIVE"
-        echo "  Linux Intel/AMD (linux/amd64) - PERFORMANCE NATIVE"  
-        echo "  Linux ARM (linux/arm64) - PERFORMANCE NATIVE"
-        echo "  Render Production (linux/amd64) - PERFORMANCE NATIVE"
-        echo "Build optimisé: ~5 minutes avec cache intelligent"
 
-  # Job 3: Déploiement automatique sur Render (seulement si Docker build réussi)
+  # JOB 3: Déploiement automatique sur Render
+  # Exécuté uniquement après succès des tests et build Docker
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
-    needs: [test, docker]  # Attend que test et docker soient terminés avec succès
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Seulement sur push vers main
+    needs: [test, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-    # 1. Déclenchement du déploiement Render
+    # Déclenchement du déploiement via webhook Render sécurisé
     - name: Deploy to Render
       run: |
-        echo "Déclenchement du déploiement sur Render..."
         response=$(curl -s -w "%{http_code}" -o /tmp/deploy_response.json \
           -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
         
         if [ "$response" = "200" ] || [ "$response" = "201" ]; then
-          echo "Déploiement déclenché avec succès"
-          echo "Réponse Render:"
           cat /tmp/deploy_response.json
-          echo ""
         else
-          echo "Erreur lors du déclenchement du déploiement"
-          echo "Code de réponse HTTP: $response"
-          echo "Réponse:"
-          cat /tmp/deploy_response.json || echo "Aucune réponse reçue"
+          echo "Erreur déploiement - Code HTTP: $response"
+          cat /tmp/deploy_response.json || echo "Aucune réponse"
           exit 1
         fi
     
-    # 2. Attendre et vérifier le déploiement
+    # Vérification de la disponibilité de l'application déployée
     - name: Wait for deployment
       run: |
-        echo "⏳ Attente de la disponibilité du déploiement..."
-        echo "URL de production: https://oc-lettings-siteeur.onrender.com"
-        
-        # Attendre 60 secondes pour laisser le temps au déploiement de commencer
         sleep 60
         
-        # Tentatives de vérification (max 5 minutes)
         for i in {1..10}; do
-          echo "Tentative $i/10 de vérification..."
           if curl -f -s --max-time 10 https://oc-lettings-siteeur.onrender.com/ > /dev/null; then
-            echo "Application déployée et accessible !"
+            echo "✅ Application déployée et accessible"
             break
           else
-            echo "⏳ Application pas encore prête, attente de 30 secondes..."
             sleep 30
           fi
           
           if [ $i -eq 10 ]; then
-            echo "Application peut encore être en cours de déploiement"
-            echo "Vérifiez manuellement: https://oc-lettings-siteeur.onrender.com"
+            echo "⚠️ Vérifiez: https://oc-lettings-siteeur.onrender.com"
           fi
         done
-    
-    # 3. Résumé du déploiement
-    - name: Deployment summary
-      run: |
-        echo "Processus de déploiement terminé !"
-        echo "URL de production: https://oc-lettings-siteeur.onrender.com"
-        echo "Admin: https://oc-lettings-siteeur.onrender.com/admin/"
-        echo "Logs Render: https://dashboard.render.com"
-        echo "Commit déployé: ${{ github.sha }}"
-        echo "Déployé par: ${{ github.actor }}"
