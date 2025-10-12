@@ -30,41 +30,53 @@ jobs:
       ALLOWED_HOSTS: 'localhost,127.0.0.1'
     
     steps:
-    # Récupération du code source depuis le repository
+    # uses: exécute une action pré-construite du marketplace GitHub
+    # actions/checkout@v4 télécharge tout le code du repo dans /home/runner/work/
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # Installation Python avec cache pip pour accélération
+    # actions/setup-python@v5 installe Python depuis https://github.com/actions/python-versions
+    # cache: 'pip' sauvegarde ~/.cache/pip pour éviter re-téléchargement des packages
+    # Économise ~2-3 minutes par build en réutilisant les .whl déjà téléchargés
     - name: Setup Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
         
-    # Installation de toutes les dépendances du projet
+    # run: exécute des commandes shell directement dans la VM Ubuntu
+    # pip install -r requirements.txt lit le fichier et installe Django, pytest, etc.
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    # Vérification conformité PEP8 avec statistiques détaillées
+    # flake8 analyse tous les .py et détecte violations PEP8 (longueur ligne, imports, etc.)
+    # --statistics affiche le nombre d'erreurs par type (E501, W503, etc.)
+    # --show-source affiche le code source problématique pour debug
     - name: Lint with flake8
       run: flake8 --statistics --show-source
         
-    # Création des dossiers requis et validation configuration Django
+    # mkdir -p crée les dossiers sans erreur s'ils existent déjà (-p = parents)
+    # manage.py check exécute Django system checks (validations modèles, URLs, settings)
     - name: Prepare Django environment
       run: |
         mkdir -p logs static staticfiles
         python manage.py check
         
-    # Exécution des tests avec mesure de couverture de code
+    # coverage run lance pytest en mesurant les lignes exécutées dans chaque .py
+    # coverage report affiche % par fichier dans la console
+    # coverage html génère htmlcov/index.html avec interface web détaillée
     - name: Run tests with coverage
       run: |
         coverage run -m pytest -v
         coverage report
         coverage html
         
-    # Sauvegarde du rapport de couverture HTML (téléchargeable 7 jours)
+    # actions/upload-artifact@v4 compresse htmlcov/ et l'envoie vers GitHub Storage
+    # Créé un .zip téléchargeable depuis l'onglet "Artifacts" du workflow
+    # if: success() = seulement si toutes les étapes précédentes ont réussi
+    # retention-days: 7 = GitHub supprime automatiquement après 7 jours
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       if: success()
@@ -73,11 +85,17 @@ jobs:
         path: htmlcov/
         retention-days: 7
         
-    # Test de collecte des fichiers statiques (simulation production)
+    # collectstatic rassemble tous les CSS/JS/images dans staticfiles/
+    # --noinput évite la demande de confirmation interactive
+    # Simule exactement ce qui se passe en production (test de régression)
     - name: Collect static files
       run: python manage.py collectstatic --noinput
         
-    # Commentaire automatique sur les Pull Requests avec résultats
+    # actions/github-script@v6 exécute du JavaScript avec accès à l'API GitHub REST
+    # Utilise le token GITHUB_TOKEN automatique (permissions lecture/écriture du repo)
+    # github.rest.issues.createComment() fait un POST à /repos/owner/repo/issues/X/comments
+    # context.issue.number récupère l'ID de la PR depuis l'événement GitHub webhook
+    # Résultat : commentaire visible publiquement sur la PR avec statut des tests
     - name: Comment PR
       uses: actions/github-script@v6
       if: github.event_name == 'pull_request'
@@ -99,11 +117,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-    # Récupération du code pour le build Docker
+    # Nouveau téléchargement du code car chaque job repart avec une VM vierge
+    # Nécessaire pour accéder au Dockerfile et aux fichiers sources
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # Configuration Docker Buildx pour builds multi-architecture optimisés
+    # docker/setup-buildx-action@v3 installe Docker Buildx (builder multi-plateforme)
+    # network=host utilise le réseau de l'hôte pour des téléchargements plus rapides
+    # buildkitd-flags active les optimisations BuildKit (cache intelligent, parallélisme)
+    # Permet de build pour linux/amd64 ET linux/arm64 simultanément
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
@@ -111,7 +133,9 @@ jobs:
           network=host
         buildkitd-flags: --allow-insecure-entitlement security.insecure
       
-    # Authentification Docker Hub avec token sécurisé
+    # docker/login-action@v3 exécute 'docker login' avec les credentials
+    # secrets.DOCKER_PASSWORD récupère le token depuis GitHub Secrets (chiffré)
+    # Équivaut à : echo $PASSWORD | docker login docker.io -u francoiskrukly --password-stdin
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
@@ -119,7 +143,11 @@ jobs:
         username: ${{ env.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         
-    # Génération automatique des tags Docker à partir des métadonnées Git
+    # docker/metadata-action@v5 génère automatiquement tags et labels OCI
+    # type=ref,event=branch crée tag avec nom branche (ex: "main")
+    # type=sha,prefix={{branch}}- crée tag avec SHA Git (ex: "main-abc1234")
+    # type=raw,value=latest ajoute tag "latest" seulement sur branche par défaut
+    # id: meta permet de réutiliser outputs dans l'étape suivante
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -130,7 +158,11 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
           
-    # Build et push image Docker multi-architecture avec cache intelligent
+    # docker/build-push-action@v5 exécute 'docker buildx build' avec optimisations
+    # platforms: linux/amd64,linux/arm64 génère 2 images pour Intel ET ARM
+    # cache-from/to: type=gha utilise GitHub Actions Cache (réutilise layers précédents)
+    # BUILDKIT_INLINE_CACHE=1 embed le cache dans l'image pour pulls futurs
+    # push: true envoie automatiquement vers docker.io/francoiskrukly/oc-lettings-site
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -153,7 +185,11 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-    # Déclenchement du déploiement via webhook Render sécurisé
+    # curl -X POST envoie requête HTTP POST vers l'URL webhook Render
+    # secrets.RENDER_DEPLOY_HOOK contient l'URL unique du service (ex: https://api.render.com/deploy/srv-...)
+    # -s = mode silencieux, -w "%{http_code}" extrait le code HTTP de retour
+    # -o /tmp/deploy_response.json sauvegarde la réponse JSON dans un fichier temporaire
+    # Render répond 200/201 si déclenchement OK, 4xx/5xx si erreur (mauvais token, service inexistant)
     - name: Deploy to Render
       run: |
         response=$(curl -s -w "%{http_code}" -o /tmp/deploy_response.json \
@@ -167,7 +203,11 @@ jobs:
           exit 1
         fi
     
-    # Vérification de la disponibilité de l'application déployée
+    # sleep 60 attend 1 minute que Render démarre le processus de build/deploy
+    # Boucle for {1..10} fait 10 tentatives de vérification avec curl
+    # curl -f fail si code HTTP 4xx/5xx, -s silencieux, --max-time 10 timeout 10s
+    # > /dev/null supprime l'output HTML pour éviter pollution des logs
+    # Si aucune réponse après 10 tentatives (5 minutes), continue sans fail (déploiement potentiellement en cours)
     - name: Wait for deployment
       run: |
         sleep 60
