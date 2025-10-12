@@ -90,7 +90,7 @@ class TestMainViews:
         """
         response = client.get(reverse('home'))
         assert response.status_code == 200
-        assert 'Welcome to OC lettings site' in response.content.decode()
+        assert 'Welcome to soutenance 13' in response.content.decode()
         assert 'Profiles' in response.content.decode()
         assert 'Lettings' in response.content.decode()
 
